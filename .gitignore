@@ -1,0 +1,10 @@
+node_modules/
+dist/
+*.ipk
+.env*
+!.env.example
+.scratch/
+.DS_Store
+coverage/
+playwright-report/
+test-results/

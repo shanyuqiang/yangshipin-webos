@@ -1,0 +1,12 @@
+{
+  "id": "com.shanyuqiang.yangshipin.prototype",
+  "version": "0.0.1",
+  "vendor": "shanyuqiang",
+  "type": "web",
+  "main": "index.html",
+  "title": "央视频兼容性实验",
+  "icon": "icon.png",
+  "largeIcon": "largeIcon.png",
+  "resolution": "1920x1080",
+  "disableBackHistoryAPI": true
+}

@@ -1,0 +1,24 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>央视频兼容性实验</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <main>
+    <p class="badge">开发实验 · 非官方应用</p>
+    <h1>央视频播放兼容性检查</h1>
+    <p>将在电视上直接打开央视频官网，检查当前 webOS 是否能够播放。</p>
+    <p>这是兼容性探针，尚未实现频道列表、遥控器播放器和账号管理。</p>
+    <div class="actions">
+      <button id="open" type="button">打开央视频官网</button>
+      <button id="exit" type="button">退出实验</button>
+    </div>
+    <p id="status" role="status" aria-live="polite">方向键选择，确定键打开，返回键退出。</p>
+    <p class="hint">若官网出现白屏或播放失败，请按电视主页键离开。跳转后本探针无法接管官网错误页面和遥控器行为。</p>
+  </main>
+  <script src="app.js"></script>
+</body>
+</html>
