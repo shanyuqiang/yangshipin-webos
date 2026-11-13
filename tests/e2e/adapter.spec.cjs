@@ -107,6 +107,16 @@ test('real service failure HTML is retryable and handles webOS Back', async ({pa
   expect(await page.evaluate(() => window.testCloseCount)).toBe(1);
 });
 
+test('remote retry returns from an upstream failure to the recovered page', async ({page}) => {
+  const url = 'http://127.0.0.1:41974/tv/home?fixture=recovery-' + Date.now();
+  expect((await page.goto(url)).status()).toBe(502);
+  await expect(page.getByRole('button', {name:'重试'})).toBeFocused();
+  const retry = page.waitForResponse(url);
+  await page.keyboard.press('Enter');
+  expect((await retry).status()).toBe(200);
+  await expect(page.getByRole('heading', {name:'央视频已恢复'})).toBeVisible();
+});
+
 test('TV toolbar stays within 1080p safe area and has readable text at focus edges', async ({page}) => {
   await page.setViewportSize({width:1920, height:1080});
   await page.goto('/fixture');
