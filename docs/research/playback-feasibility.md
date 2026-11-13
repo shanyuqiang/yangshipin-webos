@@ -49,3 +49,10 @@ LG checks still needed on this exact build: exit and relaunch, a sustained CCTV 
 The package installed in the background while HDMI 3 remained foreground. The installed bootstrap and TV UI file hashes matched their packaged files. The installed service JavaScript passed syntax checks under the TV's Node 8.12.0.
 
 An isolated instance of the installed loopback server was started on the TV with an ephemeral port. An injected upstream request failure produced HTTP 502 with the retry control. The next request used the real upstream transport and returned HTTP 200 with the player compatibility script and TV UI. The temporary server exited. This verifies service recovery on the device without changing its network or foreground input. Pressing retry in the actual app, and playback after that retry, still need foreground verification.
+
+## Foreground LG validation at a2a1729
+
+- Switched from HDMI 3 to the installed app after the user authorized the input change. Confirmed the app was foreground and reached the TV UI.
+- CCTV1 decoded at 1920×1080. Fullscreen entered, and webOS Back exited fullscreen and restored the fullscreen button's focus. Selecting 720p produced width 1280, readyState 4 and a visible CCTV1 picture.
+- Hunan TV decoded at 1920×1080. An in-page sample over 50.9 seconds recorded 1,185 additional decoded frames, 22 dropped frames, and no video error. The playback clock advanced 62.2 seconds, so this sample does not establish even cadence. External inspector polling timed out on earlier CCTV and satellite runs.
+- Opened the official SMS form on the TV. Account authentication and persistence require a user login.
