@@ -29,3 +29,17 @@ The packaged app now presents its own channel list, CCTV and satellite categorie
 On the LG CX, the new UI reached CCTV1 live playback at 1920×1080. A network remote Down input moved focus to CCTV2 while CCTV1 remained selected. Confirm changed the selected channel, and a later sample showed CCTV2 video advancing at 1920×1080. One cold start stayed at zero while the official player loaded before producing frames. Remote focus responsiveness and upstream startup are separate checks.
 
 The guide renders the available daily schedule and allows browsing dates. Earlier programmes on the observed official TV page were schedule entries without a working replay action. Live rewind and replay remain unverified. Actual SMS login, account persistence and WeChat login remain open.
+
+## Live upstream browser checks at a3dce1d
+
+These checks used the packaged app's loopback proxy and the live official site in desktop Chrome. They supplement the fixtures and do not establish webOS results.
+
+| Flow | Observed result |
+| --- | --- |
+| CCTV1 quality change | The menu marked 1080p as selected. Selecting 720p produced decoded video with width 1280, readyState 4 and a moving clock. |
+| Satellite and fullscreen | The satellite list contained 24 entries. Hunan TV played at width 1920 and readyState 4. Fullscreen opened, and Back exited fullscreen with focus restored to the fullscreen button. |
+| Account navigation | The official SMS form opened using the account entry and Enter. Back closed the form, and a second Back restored focus to the TV account button. No phone number or SMS code was submitted. |
+| Rights | The channel list identified CCTV Fengyun Theatre as a member channel. The official player kept its message that higher quality required membership and was playing in super HD. |
+| Official historical schedule | The first past date showed 35 entries. The first entry had no link or button and clicking it initiated no observed live or recorded playback request. A media seekable range alone does not establish a user-facing timeshift feature. |
+
+LG checks still needed on this exact build: exit and relaunch, a sustained CCTV and satellite sample, fullscreen/Back, resolution change, network-failure recovery, and user-assisted sign-in and session retention across relaunch and upgrade. An HDMI source remained foreground during these desktop checks.
