@@ -43,3 +43,9 @@ These checks used the packaged app's loopback proxy and the live official site i
 | Official historical schedule | The first past date showed 35 entries. The first entry had no link or button and clicking it initiated no observed live or recorded playback request. A media seekable range alone does not establish a user-facing timeshift feature. |
 
 LG checks still needed on this exact build: exit and relaunch, a sustained CCTV and satellite sample, fullscreen/Back, resolution change, network-failure recovery, and user-assisted sign-in and session retention across relaunch and upgrade. An HDMI source remained foreground during these desktop checks.
+
+## Installed build and on-device service recovery at a2a1729
+
+The package installed in the background while HDMI 3 remained foreground. The installed bootstrap and TV UI file hashes matched their packaged files. The installed service JavaScript passed syntax checks under the TV's Node 8.12.0.
+
+An isolated instance of the installed loopback server was started on the TV with an ephemeral port. An injected upstream request failure produced HTTP 502 with the retry control. The next request used the real upstream transport and returned HTTP 200 with the player compatibility script and TV UI. The temporary server exited. This verifies service recovery on the device without changing its network or foreground input. Pressing retry in the actual app, and playback after that retry, still need foreground verification.
