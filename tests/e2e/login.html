@@ -1,0 +1,14 @@
+<!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><script src="/adapter.js"></script>
+<style>body{font:24px sans-serif}.header-b-r-item5{position:absolute;left:900px;top:50px;width:150px;height:60px}.winA-mask-unLogin{display:none;position:absolute;left:850px;top:120px}.winA-mask-unLogin-bottom-img{width:250px;height:70px}.ysplogin-signin{display:none;position:absolute;left:300px;top:160px;width:500px;background:#eee;padding:20px}.ysplogin-signin div{min-height:36px;margin:12px}input{font:24px sans-serif}</style></head><body>
+<div class="header-b-r-item5">账号</div>
+<div class="winA-mask-unLogin"><div class="winA-mask-unLogin-bottom-img">登录</div></div>
+<div class="ysplogin-signin"><div class="ysplogin-signin-iptmb"><input aria-label="手机号"></div><div class="ysplogin-signin-iptvc"><input aria-label="验证码"></div><div class="ysplogin-signin-agree-chickable">协议</div><div class="ysplogin-signin-vcsend">获取验证码</div><div class="ysplogin-signin-btnmb">登录</div><div class="ysplogin-signin-close">关闭</div></div>
+<script>
+var header=document.querySelector('.header-b-r-item5'),menu=document.querySelector('.winA-mask-unLogin');
+header.addEventListener('mouseenter',function(){menu.style.display='block';});
+header.addEventListener('mouseleave',function(){menu.style.display='none';});
+header.addEventListener('click',function(){document.body.dataset.membership='unexpected';});
+document.querySelector('.winA-mask-unLogin-bottom-img').addEventListener('click',function(){menu.style.display='none';document.querySelector('.ysplogin-signin').style.display='block';});
+document.querySelector('.ysplogin-signin-agree-chickable').addEventListener('click',function(){document.body.dataset.agreed='yes';});
+document.querySelector('.ysplogin-signin-vcsend').addEventListener('click',function(){document.body.dataset.sms='sent';});
+</script></body></html>
