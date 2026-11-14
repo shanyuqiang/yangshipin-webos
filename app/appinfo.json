@@ -1,12 +1,14 @@
 {
   "id": "com.shanyuqiang.yangshipin",
-  "version": "0.0.2",
+  "version": "0.0.3",
   "vendor": "shanyuqiang",
   "type": "web",
   "main": "index.html",
   "title": "央视频电视实验版",
   "icon": "icon.png",
   "largeIcon": "largeIcon.png",
+  "iconColor": "#D90019",
+  "bgColor": "#D90019",
   "resolution": "1920x1080",
   "screenSaverProperties": {"preferredType": 2},
   "disableBackHistoryAPI": true
