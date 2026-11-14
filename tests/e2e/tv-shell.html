@@ -37,3 +37,15 @@ const vm = {
 window.replacePlayer = () => { vm.$refs.player = player('replacement'); };
 if (location.search !== '?pending') document.querySelector('#app').__vue__ = vm;
 </script>
+<script>
+if (location.search === '?standalone') {
+  window.yspStandaloneTV = vm;
+  window.yspLogin = {default:{
+    isSigned: () => Promise.resolve(false),
+    signin: () => {
+      document.body.classList.remove('tv-shell-account');
+      document.querySelector('.ysplogin-signin').style.display = 'block';
+    }
+  }};
+}
+</script>

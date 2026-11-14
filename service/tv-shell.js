@@ -39,6 +39,7 @@
     var title = make('h1', '', guide);
     var status = make('p', '', guide);
     status.setAttribute('role', 'status');
+    status.id = 'ysp-tv-shell-status';
     window.addEventListener('ysp-tv-network-status', function (event) {
       status.textContent = event.detail;
     });
@@ -180,7 +181,11 @@
           } else status.textContent = '视频正在加载。';
         }));
         rows[0].push(button(toolbar, '画质', function () { toggleQuality(true); }));
-        if (!window.yspStandaloneTV) rows[0].push(button(toolbar, '账号', function () {
+        rows[0].push(button(toolbar, '账号', function () {
+          if (window.yspStandaloneTV) {
+            openAccount();
+            return;
+          }
           var account = document.querySelector('.header-b-r-item5');
           if (account) {
             document.body.classList.add('tv-shell-account');
@@ -193,10 +198,35 @@
       }
     }
 
+    function openAccount() {
+      var sdk = window.yspLogin && window.yspLogin.default;
+      if (!sdk || typeof sdk.signin !== 'function' || typeof sdk.isSigned !== 'function') {
+        status.textContent = '账号服务暂时不可用。';
+        return;
+      }
+      document.body.classList.add('tv-shell-account');
+      Promise.resolve().then(function () { return sdk.isSigned(); }).then(function (signed) {
+        if (!document.body.classList.contains('tv-shell-account')) return;
+        if (!signed) return sdk.signin({mobile:true, wechat:false, qq:false, weibo:false});
+        if (window.confirm('已登录央视频。退出此账号？')) return sdk.signout();
+        document.body.classList.remove('tv-shell-account');
+        focus(0, 2);
+      }).catch(function () {
+        document.body.classList.remove('tv-shell-account');
+        status.textContent = '账号操作失败，请重试。';
+        focus(0, 2);
+      });
+    }
+
     function toggleQuality(show) {
       qualityMenu = show;
       renderActions();
       focus(0, show ? 0 : 1);
+    }
+
+    function accountOpen() {
+      var close = window.yspStandaloneTV && document.querySelector('.ysplogin-signin-close');
+      return document.body.classList.contains('tv-shell-account') || Boolean(close && close.getClientRects().length);
     }
 
     function onKey(event) {
@@ -205,9 +235,13 @@
       var full = document.fullscreenElement || document.webkitFullscreenElement;
       if (full) {
         if (key === 461) (document.exitFullscreen || document.webkitExitFullscreen).call(document);
-      } else if (document.body.classList.contains('tv-shell-account')) {
+      } else if (accountOpen()) {
         var closeLogin = document.querySelector('.ysplogin-signin-close');
-        if (key !== 461 || (closeLogin && closeLogin.offsetHeight)) return;
+        if (key !== 461) return;
+        if (closeLogin && closeLogin.getClientRects().length) {
+          if (!window.yspStandaloneTV || document.activeElement && document.activeElement.matches('input,textarea')) return;
+          closeLogin.click();
+        }
         var account = document.querySelector('.header-b-r-item5');
         if (account) account.dispatchEvent(new MouseEvent('mouseleave'));
         document.body.classList.remove('tv-shell-account');

@@ -6,7 +6,7 @@ async function setup(page, failure) {
   await page.route('**/session.js', route => route.fulfill({contentType: 'application/javascript; charset=utf-8', body: source}));
   await page.route('**/restore', route => route.fulfill({contentType: 'text/html; charset=utf-8', body:
     '<p id="status" role="status"></p><button id="retry">重试</button><script src="/session.js"></script>'}));
-  await page.route('**/tv/home', route => route.fulfill({contentType: 'text/html; charset=utf-8', body:
+  await page.route('**/standalone', route => route.fulfill({contentType: 'text/html; charset=utf-8', body:
     '<p id="ysp-tv-status">restored</p><script src="/session.js"></script><script>window.yspLogin={default:{signout:function(){sessionStorage.setItem("originalSawCookie",String(document.cookie.includes("test-only")));return Promise.resolve(true)}}}</script>'}));
   await page.addInitScript(failure => {
     window.close = () => { window.closedForTest = true; };
@@ -30,7 +30,7 @@ test('private restore replaces stale credentials before opening the page and sav
   await setup(page);
   await context.addCookies([{name: 'ysp_tv_ysp_openid', value: 'stale', url: 'http://127.0.0.1:41973'}]);
   await page.goto('/restore');
-  await expect(page).toHaveURL(/\/tv\/home$/);
+  await expect(page).toHaveURL(/\/standalone$/);
   expect((await context.cookies()).find(c => c.name === 'ysp_tv_ysp_openid').value).toBe('test-only');
   await page.evaluate(() => window.__yspTvSessionCookieChanged('strVideotoken=test-only; Max-Age=60'));
   const saved = await page.evaluate(() => JSON.parse(sessionStorage.getItem('savedPayload')));
@@ -53,7 +53,7 @@ test('failed private restore preserves browser credentials and exposes retry and
 test('signout revokes using the current cookie then clears persistent generation and reloads', async ({page, context}) => {
   await setup(page);
   await page.goto('/restore');
-  await expect(page).toHaveURL(/\/tv\/home$/);
+  await expect(page).toHaveURL(/\/standalone$/);
   const reloaded = page.waitForEvent('load');
   await page.evaluate(() => { window.yspLogin.default.signout(); });
   await reloaded;
@@ -65,7 +65,7 @@ test('signout revokes using the current cookie then clears persistent generation
 test('same-service restart restores session-only cookies without making them persistent', async ({page, context}) => {
   await setup(page, 'session-only');
   await page.goto('/restore');
-  await expect(page).toHaveURL(/\/tv\/home$/);
+  await expect(page).toHaveURL(/\/standalone$/);
   const cookie = (await context.cookies()).find(c => c.name === 'ysp_tv_ysp_openid');
   expect(cookie.value).toBe('test-only');
   expect(cookie.expires).toBe(-1);
@@ -74,7 +74,7 @@ test('same-service restart restores session-only cookies without making them per
 test('failed persistent signout is not reported as success and blocks late refresh saves', async ({page, context}) => {
   await setup(page, 'clear');
   await page.goto('/restore');
-  await expect(page).toHaveURL(/\/tv\/home$/);
+  await expect(page).toHaveURL(/\/standalone$/);
   const rejected = await page.evaluate(() => window.yspLogin.default.signout().then(() => false, () => true));
   expect(rejected).toBe(true);
   await expect(page.locator('#ysp-tv-status')).toContainText('请重试退出登录');

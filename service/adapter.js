@@ -210,7 +210,7 @@
       var leave = document.exitFullscreen || document.webkitExitFullscreen;
       var loginClose = document.querySelector('.ysplogin-signin-close');
       if (active && leave) leave.call(document);
-      else if (loginClose && loginClose.offsetHeight) {
+      else if (loginClose && loginClose.getClientRects().length) {
         loginClose.click();
         var account = document.querySelector('.header-b-r-item5');
         if (account) focus(account);
@@ -236,6 +236,10 @@
     event.stopImmediatePropagation();
   }
 
+  function trackInput(event) {
+    if (editable(event.target)) { focus(event.target); editingElement = event.target; }
+  }
+
   function installToolbar() {
     var style = document.createElement('style');
     style.textContent = '#ysp-tv-tools{position:fixed;bottom:60px;right:90px;z-index:2147483647;background:#102332;color:white;padding:12px;font:24px sans-serif;border-radius:6px}'
@@ -250,6 +254,11 @@
       + '.tv-zhan-list-week-item,.tv-zhan-list-week-item-t{height:110px!important;min-height:110px!important;box-sizing:border-box}'
       + '.tv-zhan-list-week-item-t-a{height:auto!important;min-height:72px;line-height:36px!important;padding-top:12px!important;padding-bottom:12px!important;box-sizing:border-box}';
     document.head.appendChild(style);
+    if (window.location.pathname === '/standalone') {
+      document.addEventListener('keydown', onKey, true);
+      document.addEventListener('click', trackInput, true);
+      return;
+    }
     var bar = document.createElement('div');
     bar.id = 'ysp-tv-tools';
     var label = document.createElement('span');
@@ -269,9 +278,7 @@
     bar.appendChild(message);
     document.body.appendChild(bar);
     document.addEventListener('keydown', onKey, true);
-    document.addEventListener('click', function (event) {
-      if (editable(event.target)) { focus(event.target); editingElement = event.target; }
-    }, true);
+    document.addEventListener('click', trackInput, true);
     focus(bar.querySelector('button'));
   }
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', installToolbar);

@@ -66,7 +66,7 @@
     call('saveSessionCookie', { name: cookie.name, value: cookie.value,
       expiresAt: cookie.expiresAt, generation: generation }, function (result) {
       if (!result.returnValue) {
-        var status = document.getElementById('ysp-tv-status');
+        var status = document.getElementById('ysp-tv-shell-status') || document.getElementById('ysp-tv-status');
         if (status) status.textContent = '登录状态暂未保存，重启后可能需要重新登录。';
       }
     });
@@ -86,7 +86,7 @@
       retry.focus();
     }
     status.textContent = '正在恢复登录状态…';
-    if (!window.PalmServiceBridge) { window.location.replace('/tv/home'); return; }
+    if (!window.PalmServiceBridge) { window.location.replace('/standalone'); return; }
     call('loadSession', {}, function (result) {
       if (!result.returnValue || !Array.isArray(result.cookies) ||
           !Number.isSafeInteger(result.generation) || result.generation < 0) { fail(); return; }
@@ -103,7 +103,7 @@
         document.cookie = 'ysp_tv_' + item.name + '=' + item.value + '; Path=/' +
           (item.expiresAt === null ? '' : '; Expires=' + new Date(item.expiresAt).toUTCString());
       });
-      window.location.replace('/tv/home');
+      window.location.replace('/standalone');
     });
   }
 
@@ -125,7 +125,7 @@
         return new Promise(function (resolve, reject) {
           call('clearSession', {}, function (response) {
             if (!response.returnValue || !Number.isSafeInteger(response.generation)) {
-              var status = document.getElementById('ysp-tv-status');
+              var status = document.getElementById('ysp-tv-shell-status') || document.getElementById('ysp-tv-status');
               if (status) status.textContent = '退出记录尚未保存，请重试退出登录。';
               reject(new Error('Session removal failed'));
               return;

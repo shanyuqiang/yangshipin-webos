@@ -98,3 +98,14 @@ test('startup keeps the desktop page hidden while the TV controls load', async (
   await expect(page.getByText('正在加载频道…')).toBeVisible();
   await expect(page.locator('#desktop-nav')).toBeHidden();
 });
+
+test('standalone account dialog can return to TV even if SDK rewrites body classes', async ({page}) => {
+  await page.goto('/tv-shell?standalone');
+  await page.getByRole('main', {name:'央视频直播'}).getByRole('button', {name:'账号'}).click();
+  await expect(page.getByLabel('手机号')).toBeVisible();
+  await expect(page.locator('#desktop-nav')).toBeHidden();
+  await page.evaluate(() => document.activeElement.dispatchEvent(new KeyboardEvent('keydown', {keyCode:461, bubbles:true})));
+  await expect(page.getByLabel('手机号')).toBeHidden();
+  await expect(page.getByRole('main', {name:'央视频直播'}).getByRole('button', {name:'账号'})).toBeFocused();
+  expect(await page.evaluate(() => window.closedByApp)).toBe(0);
+});

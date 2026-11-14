@@ -34,7 +34,7 @@ export function selectTarget(targets, targetId) {
     try {
       const url = new URL(target.url);
       return target.type === 'page' && ['127.0.0.1', 'localhost'].includes(url.hostname)
-        && url.pathname === '/tv/home' && (!targetId || target.id === targetId);
+        && ['/tv/home', '/standalone'].includes(url.pathname) && (!targetId || target.id === targetId);
     } catch { return false; }
   });
   if (matches.length !== 1) throw new Error(matches.length ? 'ambiguous_target' : 'no_target');
@@ -43,7 +43,7 @@ export function selectTarget(targets, targetId) {
 
 const expression = `(function(){
   var video=document.querySelector('video');
-  var label=document.querySelector('.tv-zhan-title');
+  var label=document.querySelector('#ysp-tv-shell-status,.tv-zhan-title');
   return {exists:!!video,currentTime:video?video.currentTime:null,
     readyState:video?video.readyState:null,paused:video?video.paused:null,
     error:video&&video.error?video.error.code:null,
