@@ -58,3 +58,7 @@ node tools/watch-video.mjs "http://127.0.0.1:$INSPECT_PORT" 320 --strict
 测试在电视页面内采样。采样完整、分辨率保持稳定且未检测到掉帧、等待、跳转或停滞时，报告 `acceptancePassed: true`。CCTV-1 和湖南卫视的 720p 与 1080p 全屏测试数据见[真机验收记录](docs/research/playback-feasibility.md)。
 
 本项目与央视频、LG 无官方关系。电视遥控交互参考了 [bili-webos](https://github.com/asdf17128/bili-webos)。
+
+## 开源许可证
+
+本项目代码采用 [MIT 许可证](LICENSE)。央视频的名称、节目内容及相关服务权利归其各自权利人所有。
