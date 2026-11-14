@@ -177,3 +177,11 @@ The LG also accepted a version-changing in-place installation from 0.0.1 to 0.0.
 With the revised package installed, a debugger test moved the application clock across Beijing midnight while CCTV1 was decoding. The guide changed from November 14 to November 15, fetched 35 programme rows and selected the new date. Focus stayed on the previously focused November 14 button. The original player and video element remained active and decoded 150 additional frames during the transition. Selecting November 14 as a historical date and advancing the application clock another day preserved the requested date and video element. The test restored the application clock. Neither the television system clock nor the live source was changed.
 
 The tracked app and service manifests now match the installed 0.0.2 QA package. Both source directories were compared byte for byte against its packaging inputs. SHA-256 digests for the installed app's served standalone and TV shell scripts matched those extracted from the IPK. The app remained at 720p and the retired desktop route returned 404. The packaged files are minified by the webOS packager.
+
+## Buffered live rewind on LG
+
+The toolbar can seek ten seconds backwards within the current contiguous buffered region, or return to the official HLS live-sync position when it is buffered and seekable. The controls do not request historical programme media. Rewind is disabled for channels identified as membership channels.
+
+The final package was installed on the LG and tested on CCTV1 at 720p. The video clock moved from 11.992 to 3.072 seconds after the rewind keypress, then reached 20.672 seconds after Return to Live. Decoded frames increased from 448 to 609 and then 804. The same video element and player revision remained active throughout. Browser tests covered missing buffer, an unavailable live-sync target, membership restrictions, and toolbar spacing at 1280×720.
+
+The same package was verified after switching from CCTV1 to Hunan TV at 720p. Exactly one new video element was mounted. Rewind moved the clock from 12.111 to 2.871 seconds, and Return to Live moved it to 20.551 seconds. Decoded frames advanced from 440 to 592 and then 760, with readyState 4 and no media error. Both actions retained the Hunan TV video instance and player revision.

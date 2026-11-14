@@ -216,6 +216,44 @@
       if (window.yspStandaloneTV && window.__yspTvSaveQuality) window.__yspTvSaveQuality(definition);
     }
 
+    function seekLive(returnToLive) {
+      var player = vm.$refs.player;
+      var live = player && player.myVideo;
+      var video = live && live.myvideo;
+      if (!video || video !== document.querySelector('.tv-main-con-l-vid video') ||
+          video.readyState < 2 || video.seeking || player.errorInfos ||
+          String(vm.tvIndex.payType) === '880') {
+        status.textContent = '当前直播暂不可时移。';
+        return;
+      }
+      var current = video.currentTime;
+      var target = returnToLive ? live.hls && live.hls.liveSyncPosition : current - 10;
+      var ranges = video.buffered;
+      var seekable = video.seekable;
+      var allowed = false;
+      for (var i = 0; Number.isFinite(target) && i < seekable.length; i++) {
+        if (target >= seekable.start(i) && target < seekable.end(i)) allowed = true;
+      }
+      for (var index = 0; allowed && index < ranges.length; index++) {
+        if (target < ranges.start(index) + 0.25 || target > ranges.end(index) - 0.5) continue;
+        if (!returnToLive && current > ranges.end(index)) continue;
+        try {
+          video.currentTime = target;
+          var message = returnToLive ? '正在回到直播点…' : '正在后退 10 秒…';
+          status.textContent = message;
+          video.addEventListener('seeked', function () {
+            if (video === document.querySelector('.tv-main-con-l-vid video') && status.textContent === message) {
+              updateProgramme();
+            }
+          }, {once:true});
+        } catch (error) {
+          status.textContent = '暂时无法调整播放位置。';
+        }
+        return;
+      }
+      status.textContent = returnToLive ? '直播点暂不可用。' : '缓冲不足，暂时无法后退 10 秒。';
+    }
+
     function renderActions() {
       toolbar.textContent = '';
       rows[0] = [];
@@ -262,6 +300,8 @@
             status.textContent = '正在重试播放…';
             vm.retryPlayback();
           }));
+          rows[0].push(button(toolbar, '后退 10 秒', function () { seekLive(false); }));
+          rows[0].push(button(toolbar, '回到直播', function () { seekLive(true); }));
         } else rows[0].push(button(toolbar, '刷新', function () { window.location.reload(); }));
       }
     }
@@ -324,7 +364,7 @@
       } else if (key === 13) {
         var selected = rows[column][positions[column]];
         if (!event.repeat && selected) {
-          if (column === 4) status.textContent = '节目单仅供查看，当前无法回看或时移。';
+          if (column === 4) status.textContent = '节目单仅供查看，当前无法回看历史节目。';
           else selected.click();
         }
       } else if (column === 4) {

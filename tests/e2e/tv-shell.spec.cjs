@@ -175,3 +175,47 @@ test('standalone can change its mind while a quality selection is loading', asyn
   await page.getByRole('button', {name:'蓝光 1080P'}).click();
   expect(await page.evaluate(() => window.calls)).toEqual(['choose:shd','choose:fhd']);
 });
+
+test('standalone rewind and live return stay within the current buffered range', async ({page}) => {
+  await page.goto('/tv-shell?standalone');
+  await page.evaluate(() => {
+    const video = document.querySelector('video');
+    const range = (start, end) => ({length:1,start:()=>start,end:()=>end});
+    Object.defineProperties(video, {
+      currentTime:{value:50,writable:true},
+      readyState:{value:4},
+      buffered:{value:range(25,65),configurable:true},
+      seekable:{value:range(20,70)}
+    });
+    yspStandaloneTV.$refs.player.myVideo = {myvideo:video,hls:{liveSyncPosition:58}};
+  });
+  const rewind = page.getByRole('button', {name:'后退 10 秒'});
+  const toolbar = await page.locator('.tv-shell-actions').boundingBox();
+  const guide = await page.locator('.tv-shell-guide').boundingBox();
+  expect(toolbar.y + toolbar.height).toBeLessThanOrEqual(guide.y);
+  await rewind.focus();
+  await page.keyboard.press('Enter');
+  await expect(rewind).toBeFocused();
+  expect(await page.locator('video').evaluate(v=>v.currentTime)).toBe(40);
+  await page.keyboard.press('ArrowRight');
+  await expect(page.getByRole('button', {name:'回到直播'})).toBeFocused();
+  await page.keyboard.press('Enter');
+  expect(await page.locator('video').evaluate(v=>v.currentTime)).toBe(58);
+  await page.evaluate(() => {
+    const video = document.querySelector('video');
+    Object.defineProperty(video,'buffered',{value:{length:1,start:()=>53,end:()=>65}});
+  });
+  await page.getByRole('button', {name:'后退 10 秒'}).click();
+  expect(await page.locator('video').evaluate(v=>v.currentTime)).toBe(58);
+  await expect(page.getByRole('status')).toContainText('缓冲不足');
+  await page.evaluate(() => {
+    yspStandaloneTV.$refs.player.myVideo.hls.liveSyncPosition = 69;
+  });
+  await page.getByRole('button', {name:'回到直播'}).click();
+  expect(await page.locator('video').evaluate(v=>v.currentTime)).toBe(58);
+  await expect(page.getByRole('status')).toContainText('直播点暂不可用');
+  await page.evaluate(() => { yspStandaloneTV.tvIndex.payType = '880'; });
+  await rewind.click();
+  await expect(page.getByRole('status')).toContainText('暂不可时移');
+  expect(await page.evaluate(()=>window.calls)).toEqual([]);
+});
