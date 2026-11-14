@@ -70,3 +70,14 @@ test('available decoded-frame counts must advance and unavailable counts are exp
   assert.equal(unavailable.frameCheck, 'unavailable');
   assert.equal(analyzeSamples(times.map(t => sample(t))).frameCheck, 'passed');
 });
+
+test('foreground playback reports distinguish an empty buffer from a buffered stall', async () => {
+  const {analyzeSamples} = await load();
+  const samples = [sample(0), sample(10), sample(15, 10, {bufferAhead:0.1}),
+    sample(20, 10, {bufferAhead:8}), sample(25, 15, {bufferAhead:4})];
+  const result = analyzeSamples(samples);
+  assert.equal(result.lowBufferStallIntervals, 1);
+  assert.equal(result.bufferedStallIntervals, 1);
+  assert.equal(result.minBufferAheadSeconds, 0.1);
+  assert.equal(analyzeSamples(samples.map(s => ({...s, visible:false}))).reason, 'background_observation');
+});

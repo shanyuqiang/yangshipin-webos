@@ -8,6 +8,7 @@ export function analyzeSamples(samples) {
   if (samples.some(sample => sample.error)) return { ...result, reason: 'media_error' };
   const stable = samples.filter(sample => sample.elapsed >= samples[0].elapsed + 10);
   if (stable.length < 2) return result;
+  if (stable.some(sample => sample.visible === false)) return { ...result, reason: 'background_observation' };
   if (stable.some(sample => !sample.exists || !Number.isFinite(sample.currentTime))) return { ...result, reason: 'no_video' };
   if (stable.some(sample => !(sample.width > 0 && sample.height > 0))) return { ...result, reason: 'no_video_dimensions' };
   if (stable.some(sample => sample.paused !== false)) return { ...result, reason: 'paused' };
@@ -18,15 +19,23 @@ export function analyzeSamples(samples) {
   const progressSeconds = stable.at(-1).currentTime - stable[0].currentTime;
   let lastAdvance = stable[0].elapsed;
   let longestStall = 0;
+  let lowBufferStallIntervals = 0;
+  let bufferedStallIntervals = 0;
   for (let index = 1; index < stable.length; index++) {
     const previous = stable[index - 1];
     const current = stable[index];
     if (current.currentTime < previous.currentTime - 0.1) return { ...result, reason: 'timeline_reset' };
     if (current.currentTime > previous.currentTime + 0.05) lastAdvance = current.elapsed;
-    else longestStall = Math.max(longestStall, current.elapsed - lastAdvance);
+    else {
+      longestStall = Math.max(longestStall, current.elapsed - lastAdvance);
+      if (Number.isFinite(current.bufferAhead) && current.bufferAhead <= 0.5) lowBufferStallIntervals++;
+      if (Number.isFinite(current.bufferAhead) && current.bufferAhead >= 2) bufferedStallIntervals++;
+    }
   }
   const reason = longestStall > 15 ? 'playback_stalled' : progressSeconds < observedSeconds * 0.75 ? 'insufficient_progress' : 'advancing';
-  return { passed: reason === 'advancing', reason, progressSeconds, observedSeconds, longestStallSeconds: longestStall, frameCheck };
+  const buffers = stable.map(sample => sample.bufferAhead).filter(Number.isFinite);
+  return { passed: reason === 'advancing', reason, progressSeconds, observedSeconds, longestStallSeconds: longestStall,
+    frameCheck, lowBufferStallIntervals, bufferedStallIntervals, minBufferAheadSeconds: buffers.length ? Math.min(...buffers) : null };
 }
 
 export function selectTarget(targets, targetId) {
@@ -44,7 +53,16 @@ export function selectTarget(targets, targetId) {
 const expression = `(function(){
   var video=document.querySelector('video');
   var label=document.querySelector('#ysp-tv-shell-status,.tv-zhan-title');
+  var ahead=null;
+  if(video){
+    ahead=0;
+    for(var i=0;i<video.buffered.length;i++){
+      if(video.buffered.start(i)<=video.currentTime+0.05 && video.buffered.end(i)>=video.currentTime)
+        ahead=Math.max(ahead,video.buffered.end(i)-video.currentTime);
+    }
+  }
   return {exists:!!video,currentTime:video?video.currentTime:null,
+    visible:document.visibilityState==='visible',bufferAhead:ahead,
     readyState:video?video.readyState:null,paused:video?video.paused:null,
     error:video&&video.error?video.error.code:null,
     width:video?video.videoWidth:null,height:video?video.videoHeight:null,
@@ -94,6 +112,7 @@ function sanitize(value, elapsed) {
   const numeric = key => Number.isFinite(value[key]) ? value[key] : null;
   return { elapsed, exists: value.exists === true, currentTime: numeric('currentTime'),
     readyState: numeric('readyState'), paused: typeof value.paused === 'boolean' ? value.paused : null,
+    visible: typeof value.visible === 'boolean' ? value.visible : null, bufferAhead: numeric('bufferAhead'),
     error: numeric('error'), width: numeric('width'), height: numeric('height'),
     decodedFrames: numeric('decodedFrames'), droppedFrames: numeric('droppedFrames'),
     programLabel: typeof value.programLabel === 'string' ? value.programLabel.slice(0, 80).replace(/https?:\/\/\S+/g, '[redacted]') : null };
