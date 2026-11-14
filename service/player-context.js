@@ -6,6 +6,7 @@
   var localOrigin = window.location.origin;
   var active;
   var currentFactory;
+  var latestDecoder;
   var factories = new WeakMap();
   var wrappedFactories = new WeakSet();
   var context = new Proxy(window, {
@@ -27,6 +28,25 @@
       var source = Function.prototype.toString.call(factory);
       var adapted = new Function('window', 'self', 'globalThis', 'location', '_scriptDir',
         'return (' + source + ');')(context, context, context, upstream, script.href);
+      if (window.location.pathname === '/standalone') {
+        var createDecoder = adapted;
+        adapted = function () {
+          var generation = window.yspChannelGeneration;
+          var decoder = createDecoder.apply(this, arguments);
+          latestDecoder = decoder;
+          var ready = decoder.onRuntimeInitialized;
+          Object.defineProperty(decoder, 'onRuntimeInitialized', {
+            configurable: true,
+            get: function () { return ready; },
+            set: function (callback) {
+              ready = typeof callback !== 'function' ? callback : function () {
+                if (decoder === latestDecoder && generation === window.yspChannelGeneration) return callback.apply(this, arguments);
+              };
+            }
+          });
+          return decoder;
+        };
+      }
       factories.set(factory, adapted);
       wrappedFactories.add(adapted);
       return adapted;

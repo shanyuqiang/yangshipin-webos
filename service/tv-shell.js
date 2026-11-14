@@ -289,7 +289,7 @@
     vm.$watch('nowPlayItem', updateProgramme);
     vm.$watch('jiemuNowDate', renderDateSelection);
     vm.$watch('tvIndex', function () { renderDates(); updateProgramme(); });
-    vm.$watch(function () { return vm.$refs.player && vm.$refs.player.errorInfos; }, updateProgramme);
+    vm.$watch(function () { return [vm.videoConfig, vm.$refs.player && vm.$refs.player.errorInfos]; }, updateProgramme);
     root.addEventListener('focusin', function (event) {
       rows.some(function (items, index) {
         var position = items.indexOf(event.target);

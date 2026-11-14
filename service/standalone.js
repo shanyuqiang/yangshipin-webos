@@ -61,6 +61,15 @@
     var selected = new URLSearchParams(location.search).get('pid');
     var group = groups[1].some(function (channel) { return channel.pid === selected; }) ? 1 : 0;
     var initial = groups[group].find(function (channel) { return channel.pid === selected; }) || groups[0][0];
+    var ChannelPlayer = libraries.Vue.extend({
+      extends: libraries.Player,
+      beforeDestroy: function () {
+        if (this.myVideo) {
+          clearInterval(this.myVideo.cycleInterTime);
+          this.destroyedLive();
+        }
+      }
+    });
     return new libraries.Vue({
       data: {
         tvTabs:groups, selectIndex:group, tvIndex:null, jiemudanInfo:[],
@@ -70,6 +79,7 @@
       methods: {
         changeIndex: function (index) { this.selectIndex = index; },
         changeTV: function (channel) {
+          window.yspChannelGeneration = (window.yspChannelGeneration || 0) + 1;
           this.tvIndex = Object.assign({}, channel, {parseDateList1:dates(channel, today)});
           this.videoConfig = {pid:channel.pid, vid:channel.streamId, isTV:true, autoplay:true,
             viewRights:channel.viewRights, payType:channel.payType};
@@ -93,7 +103,7 @@
         }
       },
       render: function (h) {
-        return h(libraries.Player, {ref:'player', props:{videoConfig:this.videoConfig}});
+        return h(ChannelPlayer, {key:this.videoConfig.pid, ref:'player', props:{videoConfig:this.videoConfig}});
       }
     }).$mount('#player-mount');
   }

@@ -3,9 +3,9 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const vm = require('node:vm');
 
-function load() {
+function load(path = '/tv/home') {
   const source = fs.readFileSync('service/player-context.js', 'utf8');
-  const location = new URL('http://127.0.0.1:12345/tv/home');
+  const location = new URL('http://127.0.0.1:12345' + path);
   const script = { src: 'https://sapi.yangshipin.cn/assets/2025/wasm/cmg.worker.js?ver=test' };
   const window = { location, origin: location.origin, extra: 'retained' };
   const context = { window, document: { currentScript: script }, URL, Proxy, Reflect, WeakMap, WeakSet };
@@ -63,4 +63,36 @@ test('non-functions and repeated factory assignments do not rewrap', () => {
   assert.equal(window.CMGDecModule, wrapped);
   window.CMGDecModule = wrapped;
   assert.equal(window.CMGDecModule, wrapped);
+});
+
+test('decoder completion cannot attach from a previous channel', () => {
+  const {window} = load('/standalone');
+  window.CMGDecModule = function () { return {}; };
+  window.yspChannelGeneration = 1;
+  const oldDecoder = window.CMGDecModule();
+  let completed = 0;
+  oldDecoder.onRuntimeInitialized = () => { completed++; };
+  window.yspChannelGeneration = 2;
+  oldDecoder.onRuntimeInitialized();
+  assert.equal(completed, 0);
+  const latestDecoder = window.CMGDecModule();
+  latestDecoder.onRuntimeInitialized = function (value) {
+    assert.equal(this, latestDecoder);
+    completed += value;
+  };
+  latestDecoder.onRuntimeInitialized(2);
+  assert.equal(completed, 2);
+});
+
+test('older decoder cannot attach after a new quality decoder is created', () => {
+  const {window} = load('/standalone');
+  window.CMGDecModule = function () { return {}; };
+  const old = window.CMGDecModule();
+  const newer = window.CMGDecModule();
+  const callbacks = [];
+  old.onRuntimeInitialized = () => callbacks.push('old');
+  newer.onRuntimeInitialized = () => callbacks.push('new');
+  old.onRuntimeInitialized();
+  newer.onRuntimeInitialized();
+  assert.deepEqual(callbacks, ['new']);
 });
