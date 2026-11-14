@@ -59,8 +59,9 @@
         if (video !== document.querySelector('.tv-main-con-l-vid video')) return;
         if (retrying && (name === 'playing' || name === 'error')) {
           retrying = false;
+          if (name === 'error') status.textContent = '播放失败，请重试。';
+          else updateProgramme();
         }
-        if (name === 'error' || name === 'playing') updatePlaybackStatus();
         if (name !== 'waiting') {
           clearBuffering();
         } else if (!bufferTimer && !buffering.textContent) {
@@ -85,41 +86,6 @@
     var positions = [0, group, 0, 0, 0];
     var qualityMenu = false;
     var pendingChannel = null;
-    var retryButton;
-
-    function playbackFailed() {
-      var player = vm.$refs.player;
-      var video = document.querySelector('.tv-main-con-l-vid video');
-      return (player && player.errorInfos) || (video && video.error);
-    }
-
-    function updateRetryButton() {
-      if (qualityMenu || typeof vm.retryPlayback !== 'function') return;
-      if (retrying || playbackFailed()) {
-        if (retryButton) return;
-        retryButton = button(toolbar, '重试播放', function () {
-          clearBuffering();
-          retrying = true;
-          status.textContent = '正在重试播放…';
-          vm.retryPlayback();
-        });
-        rows[0].push(retryButton);
-      } else if (retryButton) {
-        var wasFocused = retryButton === document.activeElement;
-        retryButton.remove();
-        retryButton = null;
-        rows[0].pop();
-        positions[0] = Math.min(positions[0], rows[0].length - 1);
-        if (wasFocused) focus(0, rows[0].length - 1);
-      }
-    }
-
-    function updatePlaybackStatus() {
-      updateRetryButton();
-      status.textContent = playbackFailed() ? '播放遇到问题，可查看播放器提示或重试。' :
-        retrying ? '正在重试播放…' :
-        (typeof vm.nowPlayItem === 'string' ? vm.nowPlayItem : vm.nowPlayItem && vm.nowPlayItem.name) || '';
-    }
 
     function focus(nextColumn, index) {
       if (!rows[nextColumn].length) return;
@@ -168,7 +134,11 @@
         if (vm.tvTabs[group][index].pid === current.pid) element.setAttribute('aria-current', 'true');
         else element.removeAttribute('aria-current');
       });
-      updatePlaybackStatus();
+      var player = vm.$refs.player;
+      var failed = player && player.errorInfos;
+      status.textContent = failed ? '播放遇到问题，可查看播放器提示或重试。' :
+        retrying ? '正在重试播放…' :
+        (typeof vm.nowPlayItem === 'string' ? vm.nowPlayItem : vm.nowPlayItem && vm.nowPlayItem.name) || '';
       var wasFocused = programmes.contains(document.activeElement);
       programmes.textContent = '';
       var entries = Array.isArray(vm.jiemudanInfo) ? vm.jiemudanInfo : [];
@@ -246,7 +216,7 @@
       if (window.yspStandaloneTV && window.__yspTvSaveQuality) window.__yspTvSaveQuality(definition);
     }
 
-    function seekLive() {
+    function seekLive(returnToLive) {
       var player = vm.$refs.player;
       var live = player && player.myVideo;
       var video = live && live.myvideo;
@@ -256,7 +226,8 @@
         status.textContent = '当前直播暂不可时移。';
         return;
       }
-      var target = live.hls && live.hls.liveSyncPosition;
+      var current = video.currentTime;
+      var target = returnToLive ? live.hls && live.hls.liveSyncPosition : current - 10;
       var ranges = video.buffered;
       var seekable = video.seekable;
       var allowed = false;
@@ -265,9 +236,10 @@
       }
       for (var index = 0; allowed && index < ranges.length; index++) {
         if (target < ranges.start(index) + 0.25 || target > ranges.end(index) - 0.5) continue;
+        if (!returnToLive && current > ranges.end(index)) continue;
         try {
           video.currentTime = target;
-          var message = '正在回到直播点…';
+          var message = returnToLive ? '正在回到直播点…' : '正在后退 10 秒…';
           status.textContent = message;
           video.addEventListener('seeked', function () {
             if (video === document.querySelector('.tv-main-con-l-vid video') && status.textContent === message) {
@@ -279,13 +251,12 @@
         }
         return;
       }
-      status.textContent = '直播点暂不可用。';
+      status.textContent = returnToLive ? '直播点暂不可用。' : '缓冲不足，暂时无法后退 10 秒。';
     }
 
     function renderActions() {
       toolbar.textContent = '';
       rows[0] = [];
-      retryButton = null;
       if (qualityMenu) {
         var player = vm.$refs.player;
         var control = qualityControl(player);
@@ -323,8 +294,14 @@
           }
         }));
         if (typeof vm.retryPlayback === 'function') {
-          rows[0].push(button(toolbar, '回到直播', seekLive));
-          updateRetryButton();
+          rows[0].push(button(toolbar, '重试播放', function () {
+            clearBuffering();
+            retrying = true;
+            status.textContent = '正在重试播放…';
+            vm.retryPlayback();
+          }));
+          rows[0].push(button(toolbar, '后退 10 秒', function () { seekLive(false); }));
+          rows[0].push(button(toolbar, '回到直播', function () { seekLive(true); }));
         } else rows[0].push(button(toolbar, '刷新', function () { window.location.reload(); }));
       }
     }

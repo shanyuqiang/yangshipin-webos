@@ -148,27 +148,15 @@ test('confirming the current channel cancels a queued switch', async ({page}) =>
   expect(await page.evaluate(() => window.calls)).toEqual([]);
 });
 
-test('TV retry appears after a playback error and releases focus after recovery', async ({page}) => {
+test('TV retry restarts only the current stream and preserves focus', async ({page}) => {
   await page.goto('/tv-shell?standalone');
   const retry = page.getByRole('button', {name:'重试播放'});
-  await expect(retry).toHaveCount(0);
-  await page.locator('video').evaluate(video => {
-    Object.defineProperty(video, 'error', {configurable:true,value:{code:2}});
-    video.dispatchEvent(new Event('error'));
-  });
-  await expect(retry).toBeVisible();
   await retry.focus();
   await page.keyboard.press('Enter');
   await expect(retry).toBeFocused();
   await expect(page.getByRole('button', {name:'CCTV1'})).toHaveAttribute('aria-current', 'true');
   await expect(page.getByRole('status')).toContainText('正在重试');
   expect(await page.evaluate(() => window.calls)).toEqual(['retry:1']);
-  await page.locator('video').evaluate(video => {
-    delete video.error;
-    video.dispatchEvent(new Event('playing'));
-  });
-  await expect(retry).toHaveCount(0);
-  await expect(page.getByRole('button', {name:'回到直播'})).toBeFocused();
 });
 
 test('standalone can change its mind while a quality selection is loading', async ({page}) => {
@@ -188,7 +176,7 @@ test('standalone can change its mind while a quality selection is loading', asyn
   expect(await page.evaluate(() => window.calls)).toEqual(['choose:shd','choose:fhd']);
 });
 
-test('standalone live return stays within the current buffered range', async ({page}) => {
+test('standalone rewind and live return stay within the current buffered range', async ({page}) => {
   await page.goto('/tv-shell?standalone');
   await page.evaluate(() => {
     const video = document.querySelector('video');
@@ -201,14 +189,25 @@ test('standalone live return stays within the current buffered range', async ({p
     });
     yspStandaloneTV.$refs.player.myVideo = {myvideo:video,hls:{liveSyncPosition:58}};
   });
-  await expect(page.getByRole('button', {name:'后退 10 秒'})).toHaveCount(0);
-  const live = page.getByRole('button', {name:'回到直播'});
+  const rewind = page.getByRole('button', {name:'后退 10 秒'});
   const toolbar = await page.locator('.tv-shell-actions').boundingBox();
   const guide = await page.locator('.tv-shell-guide').boundingBox();
   expect(toolbar.y + toolbar.height).toBeLessThanOrEqual(guide.y);
-  await live.focus();
+  await rewind.focus();
+  await page.keyboard.press('Enter');
+  await expect(rewind).toBeFocused();
+  expect(await page.locator('video').evaluate(v=>v.currentTime)).toBe(40);
+  await page.keyboard.press('ArrowRight');
+  await expect(page.getByRole('button', {name:'回到直播'})).toBeFocused();
   await page.keyboard.press('Enter');
   expect(await page.locator('video').evaluate(v=>v.currentTime)).toBe(58);
+  await page.evaluate(() => {
+    const video = document.querySelector('video');
+    Object.defineProperty(video,'buffered',{value:{length:1,start:()=>53,end:()=>65}});
+  });
+  await page.getByRole('button', {name:'后退 10 秒'}).click();
+  expect(await page.locator('video').evaluate(v=>v.currentTime)).toBe(58);
+  await expect(page.getByRole('status')).toContainText('缓冲不足');
   await page.evaluate(() => {
     yspStandaloneTV.$refs.player.myVideo.hls.liveSyncPosition = 69;
   });
@@ -216,7 +215,28 @@ test('standalone live return stays within the current buffered range', async ({p
   expect(await page.locator('video').evaluate(v=>v.currentTime)).toBe(58);
   await expect(page.getByRole('status')).toContainText('直播点暂不可用');
   await page.evaluate(() => { yspStandaloneTV.tvIndex.payType = '880'; });
-  await live.click();
+  await rewind.click();
   await expect(page.getByRole('status')).toContainText('暂不可时移');
   expect(await page.evaluate(()=>window.calls)).toEqual([]);
+});
+
+test('only TV-compatible controls appear inside the live video', async ({page}) => {
+  await page.goto('/tv-shell?standalone');
+  const controls = page.locator('.tv-main-con-l-vid .y-full-control-btnr');
+  await page.locator('.tv-main-con-l-vid').evaluate(player => {
+    player.insertAdjacentHTML('beforeend', `<div class="y-full-control-btnr">
+      <div class="y-control-outside mr-20">画质</div>
+      <div class="y-control-outside mr-20">音量</div>
+      <div class="flex-center mr-20"><button class="pip">小窗播放</button></div>
+      <div class="flex-center mr-20"><button class="videoFull">网页内全屏</button></div>
+      <button class="full full2">全屏</button>
+    </div>`);
+  });
+  await expect(controls.getByText('小窗播放')).toBeHidden();
+  await expect(controls.getByText('网页内全屏')).toBeHidden();
+  await expect(controls.getByText('画质')).toBeVisible();
+  await expect(controls.getByText('音量')).toBeVisible();
+  await expect(controls.getByRole('button', {name:'全屏',exact:true})).toBeVisible();
+  await expect(page.locator('.tv-shell-actions').getByRole('button', {name:'后退 10 秒'})).toBeVisible();
+  await expect(page.locator('.tv-shell-actions').getByRole('button', {name:'重试播放'})).toBeVisible();
 });

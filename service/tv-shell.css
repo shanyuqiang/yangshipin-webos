@@ -5,6 +5,8 @@ body.tv-shell-active { background:#111820!important; color:#f0f4f8; overflow:hid
 .tv-shell-active #app { background:none!important }
 .tv-shell-active .tv-main-con-l-vid { position:fixed!important; left:4vw; top:5vh; width:65vw!important; height:63vh!important; z-index:10; margin:0!important; background:#000 }
 .tv-shell-active .tv-main-con-l-vid > div,.tv-shell-active .tv-main-con-l-vid .c-container { width:100%!important; height:100%!important }
+/* The SDK wraps picture-in-picture and page fullscreen in these two controls. */
+.tv-shell-active .tv-main-con-l-vid .y-full-control-btnr > .flex-center.mr-20 { display:none!important }
 .tv-shell-active #ysp-tv-shell { display:block; position:fixed; inset:0; top:0; right:0; bottom:0; left:0; z-index:20; pointer-events:none; font:26px system-ui,sans-serif; color:#f0f4f8 }
 #ysp-tv-shell nav,#ysp-tv-shell aside,#ysp-tv-shell section { pointer-events:auto }
 #ysp-tv-shell button { background:#263544; color:inherit; border:3px solid transparent; border-radius:8px; font:inherit; padding:.35em .7em; margin:3px; cursor:pointer }
