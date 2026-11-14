@@ -95,7 +95,13 @@
         var badge = String(channel.payType) === '880' ? ' · 会员' : '';
         var item = button(channels, channel.channelName + badge, function () {
           focus(2, index);
-          if (vm.tvIndex && channel.pid === vm.tvIndex.pid) return;
+          if (vm.tvIndex && channel.pid === vm.tvIndex.pid) {
+            if (pendingChannel) {
+              pendingChannel = null;
+              updateProgramme();
+            }
+            return;
+          }
           pendingChannel = channel;
           status.textContent = '正在切换到 ' + channel.channelName + '…';
           window.requestAnimationFrame(function () {

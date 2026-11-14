@@ -122,3 +122,18 @@ test('sustained buffering is shown without moving focus and clears when video re
   await page.locator('video').dispatchEvent('playing');
   await expect(buffering).toBeHidden();
 });
+
+test('confirming the current channel cancels a queued switch', async ({page}) => {
+  await page.goto('/tv-shell');
+  await page.evaluate(() => {
+    const slots = [];
+    window.requestAnimationFrame = callback => slots.push(callback);
+    const buttons = document.querySelectorAll('.tv-shell-channels button');
+    buttons[1].click();
+    buttons[0].click();
+    slots.forEach(callback => callback());
+  });
+  await expect(page.getByRole('button', {name:'CCTV1'})).toHaveAttribute('aria-current', 'true');
+  await expect(page.getByRole('status')).not.toContainText('正在切换');
+  expect(await page.evaluate(() => window.calls)).toEqual([]);
+});
