@@ -32,3 +32,5 @@ html.tv-shell-loading body { visibility:hidden; background:#111820!important; ov
 .tv-shell-account .winA-mask-unLogin,
 .tv-shell-account .winA-mask-login { visibility:visible }
 .tv-shell-account #ysp-tv-tools { display:none!important }
+
+.tv-shell-guide .tv-shell-buffering:not(:empty) { margin-left:1em; color:#8bd8ff }

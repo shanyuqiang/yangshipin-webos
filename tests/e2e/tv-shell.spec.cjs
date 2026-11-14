@@ -109,3 +109,15 @@ test('standalone account dialog can return to TV even if SDK rewrites body class
   await expect(page.getByRole('main', {name:'央视频直播'}).getByRole('button', {name:'账号'})).toBeFocused();
   expect(await page.evaluate(() => window.closedByApp)).toBe(0);
 });
+
+test('sustained buffering is shown without moving focus and clears when video resumes', async ({page}) => {
+  await page.goto('/tv-shell');
+  const cctv = page.getByRole('button', {name:'CCTV1'});
+  await expect(cctv).toBeFocused();
+  await page.locator('video').dispatchEvent('waiting');
+  const buffering = page.getByText('正在缓冲…', {exact:true});
+  await expect(buffering).toBeVisible({timeout:4000});
+  await expect(cctv).toBeFocused();
+  await page.locator('video').dispatchEvent('playing');
+  await expect(buffering).toBeHidden();
+});

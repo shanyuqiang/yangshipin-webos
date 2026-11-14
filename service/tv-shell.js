@@ -43,6 +43,31 @@
     window.addEventListener('ysp-tv-network-status', function (event) {
       status.textContent = event.detail;
     });
+    var buffering = make('p', '', guide);
+    buffering.className = 'tv-shell-buffering';
+    buffering.setAttribute('aria-live', 'polite');
+    var bufferTimer;
+    function clearBuffering() {
+      clearTimeout(bufferTimer);
+      bufferTimer = null;
+      buffering.textContent = '';
+    }
+    ['waiting', 'playing', 'pause', 'emptied', 'error'].forEach(function (name) {
+      document.addEventListener(name, function (event) {
+        var video = event.target;
+        if (video !== document.querySelector('.tv-main-con-l-vid video')) return;
+        if (name !== 'waiting') {
+          clearBuffering();
+        } else if (!bufferTimer && !buffering.textContent) {
+          bufferTimer = setTimeout(function () {
+            bufferTimer = null;
+            if (video === document.querySelector('.tv-main-con-l-vid video') && video.readyState < 3) {
+              buffering.textContent = '正在缓冲…';
+            }
+          }, 1500);
+        }
+      }, true);
+    });
     var dates = make('div', '', guide);
     var programmes = make('ul', '', guide);
     var sidebar = make('aside', '', root);
@@ -288,7 +313,7 @@
     vm.$watch('jiemudanInfo', updateProgramme);
     vm.$watch('nowPlayItem', updateProgramme);
     vm.$watch('jiemuNowDate', renderDateSelection);
-    vm.$watch('tvIndex', function () { renderDates(); updateProgramme(); });
+    vm.$watch('tvIndex', function () { clearBuffering(); renderDates(); updateProgramme(); });
     vm.$watch(function () { return [vm.videoConfig, vm.$refs.player && vm.$refs.player.errorInfos]; }, updateProgramme);
     root.addEventListener('focusin', function (event) {
       rows.some(function (items, index) {
