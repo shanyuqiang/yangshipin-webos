@@ -377,3 +377,21 @@ test('restore route contains no session data and loads only the private-session 
     assert.equal((await get('/session.js')).status,200);
   });
 });
+
+test('standalone TV route serves a local document without fetching the desktop page', async () => {
+  const server = createServer({request() { throw new Error('Unexpected upstream request'); }});
+  await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
+  try {
+    const base = 'http://127.0.0.1:' + server.address().port;
+    const response = await fetch(base + '/standalone');
+    assert.equal(response.status, 200);
+    const body = await response.text();
+    assert.match(body, /src="\/standalone\.js"/);
+    assert.doesNotMatch(body, /\/js\/app\.|<iframe|header-fixed/);
+    const script = await fetch(base + '/standalone.js');
+    assert.equal(script.status, 200);
+    assert.match(script.headers.get('content-type'), /javascript/);
+  } finally {
+    await new Promise(resolve => server.close(resolve));
+  }
+});

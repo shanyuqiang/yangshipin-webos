@@ -60,3 +60,9 @@ An isolated instance of the installed loopback server was started on the TV with
 The completed Hunan TV in-page sample contained 13 observations across 60.1 seconds: the video clock advanced 67.8 seconds, 1,364 frames decoded, 55 frames dropped and one sampling interval showed no clock advance. No video error was reported. Subsequent observations at playback clocks 217.7 and 231.5 seconds also showed advancing decoded frames. This confirms continued decoding and identifies an interruption in cadence.
 
 From the actual TV app origin, a read-only Luna loadSession call returned success and a valid generation with no saved cookies. The official SMS dialog remained open. This verifies the on-device app-to-service read path for an empty session. A signed-in account and its persistence remain unverified.
+
+## Standalone document experiment
+
+The local `/standalone` route serves its own HTML. The browser loads the published player SDKs and imports only the player and rendering modules from the pinned vendor asset. It does not fetch the official HTML or execute the official app entry. Channel catalogue, server time and programmes are read from their individual endpoints. The two catalogue groups contained 40 CCTV and 24 satellite entries.
+
+On the LG, the standalone route decoded CCTV1 at 1920×1080 and then switched to Hunan TV at the same resolution. Hunan TV showed 34 guide entries and a single video element. The observed page contained none of the official header, channel panel or guide DOM. These samples establish initial decode and switching. The normal launch route still uses the previous build path pending standalone startup, recovery and account-entry integration. Real login testing is deferred at the user's request.

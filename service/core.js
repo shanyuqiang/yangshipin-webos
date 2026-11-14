@@ -201,7 +201,13 @@ function createServer(options) {
       reply(res, 200, '<!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>恢复登录状态</title><style>body{background:#141414;color:white;font:28px sans-serif;margin:90px}button{font:28px sans-serif;padding:20px 40px}button:focus{outline:5px solid #ffcc00}</style></head><body><h1>央视频电视实验版</h1><p id="status" role="status">正在恢复登录状态…</p><button id="retry" type="button">重试</button><script src="/session.js"></script></body></html>', 'text/html; charset=utf-8');
       return;
     }
-    if (['/adapter.js', '/player-context.js', '/session.js', '/tv-shell.js', '/tv-shell.css'].indexOf(local.pathname) !== -1 && req.method === 'GET') {
+    if (local.pathname === '/standalone' && req.method === 'GET') {
+      fs.readFile(path.join(__dirname, 'standalone.html'), function (error, data) {
+        reply(res, error ? 503 : 200, error ? failurePage() : data, 'text/html; charset=utf-8');
+      });
+      return;
+    }
+    if (['/catalogue.js', '/standalone.js', '/adapter.js', '/player-context.js', '/session.js', '/tv-shell.js', '/tv-shell.css'].indexOf(local.pathname) !== -1 && req.method === 'GET') {
       fs.readFile(path.join(__dirname, local.pathname.slice(1)), function (error, data) {
         reply(res, error ? 503 : 200, error ? 'Adapter unavailable' : data, local.pathname === '/tv-shell.css' ? 'text/css; charset=utf-8' : 'application/javascript; charset=utf-8');
       });

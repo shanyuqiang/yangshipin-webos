@@ -19,6 +19,7 @@
   }
 
   function findTV() {
+    if (window.yspStandaloneTV) return window.yspStandaloneTV;
     for (var node = document.querySelector('.tv-main-con-l-vid'); node; node = node.parentElement) {
       var vm = node.__vue__;
       if (vm && typeof vm.changeTV === 'function' && Array.isArray(vm.tvTabs) &&
@@ -179,7 +180,7 @@
           } else status.textContent = '视频正在加载。';
         }));
         rows[0].push(button(toolbar, '画质', function () { toggleQuality(true); }));
-        rows[0].push(button(toolbar, '账号', function () {
+        if (!window.yspStandaloneTV) rows[0].push(button(toolbar, '账号', function () {
           var account = document.querySelector('.header-b-r-item5');
           if (account) {
             document.body.classList.add('tv-shell-account');
