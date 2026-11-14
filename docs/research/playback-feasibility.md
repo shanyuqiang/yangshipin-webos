@@ -124,3 +124,7 @@ A temporary native HTML video probe used the same already-authorized live HLS so
 ## Current programme refresh
 
 The standalone guide now keeps the start and end times from the upstream response and updates the active programme locally as server-adjusted time advances. It preserves the selected row and does not reload the schedule or player at a programme boundary. Desktop and LG tests advanced only the page clock across a real CCTV1 programme boundary: the label changed from episode 7 to episode 8 and the focused row remained selected. The test clock was restored. The LG was decoding at 720p. This refresh covers the loaded date; it does not fetch a different date automatically when crossing midnight.
+
+## Quality response ordering
+
+A desktop test against the live upstream held a 540p playback-address response, selected 720p and started decoding, then released the older response. The original build reverted to 540p. The corrected build stayed at 720p and continued decoding. Manual choices now replace the player instance with an explicit requested definition, preserving the upstream explicit selection parameter and isolating old responses. The last loaded quality menu for the same channel remains available until its new player has options. On the LG, quickly choosing 540p then 720p selected revision 2, retained focus on the quality control, and decoded at width 1280 with one video element. The delayed-response injection was performed on desktop; the LG test used real requests without injected delay.

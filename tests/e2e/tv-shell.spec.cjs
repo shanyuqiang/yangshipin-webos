@@ -148,3 +148,20 @@ test('TV retry restarts only the current stream and preserves focus', async ({pa
   await expect(page.getByRole('status')).toContainText('正在重试');
   expect(await page.evaluate(() => window.calls)).toEqual(['retry:1']);
 });
+
+test('standalone can change its mind while a quality selection is loading', async ({page}) => {
+  await page.goto('/tv-shell?standalone');
+  await page.evaluate(() => {
+    const vm = window.yspStandaloneTV;
+    vm.selectPlaybackQuality = definition => {
+      window.calls.push('choose:'+definition);
+      vm.$refs.player.myPoster = null;
+    };
+  });
+  const open = () => page.getByRole('button', {name:'画质', exact:true}).click();
+  await open();
+  await page.getByRole('button', {name:'超清 720P'}).click();
+  await open();
+  await page.getByRole('button', {name:'蓝光 1080P'}).click();
+  expect(await page.evaluate(() => window.calls)).toEqual(['choose:shd','choose:fhd']);
+});

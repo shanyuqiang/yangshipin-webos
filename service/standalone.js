@@ -116,6 +116,10 @@
         getLiveUrlsByVid: function (pid, vid, definition, adjust) {
           var original = libraries.Player.methods.getLiveUrlsByVid;
           if (definition !== undefined || adjust !== undefined) return original.apply(this, arguments);
+          if (!this.initialQualityRequested && this.videoConfig.requestedDefinition) {
+            this.initialQualityRequested = true;
+            return original.call(this, pid, vid, this.videoConfig.requestedDefinition, 0);
+          }
           var preferred;
           try { preferred = window.sessionStorage.getItem('ysp-tv-quality'); }
           catch (error) { /* Let the SDK use its default. */ }
@@ -154,6 +158,11 @@
             viewRights:channel.viewRights, payType:channel.payType};
           history.replaceState(null, '', '?pid=' + encodeURIComponent(channel.pid));
           this.changeDay(date.replace(/-/g, ''));
+        },
+        selectPlaybackQuality: function (definition) {
+          if (['fhd', 'shd', 'hd'].indexOf(definition) === -1) return;
+          this.videoConfig = Object.assign({}, this.videoConfig, {requestedDefinition:definition});
+          this.retryPlayback();
         },
         retryPlayback: function () {
           window.yspChannelGeneration++;

@@ -180,17 +180,32 @@
       return player && player.myPoster && player.myPoster.$refs && player.myPoster.$refs.controlBar;
     }
 
+    var cachedQualityOptions = [];
+    var qualityChannel;
+    function qualityOptions(control) {
+      if (qualityChannel !== vm.tvIndex.pid) {
+        qualityChannel = vm.tvIndex.pid;
+        cachedQualityOptions = [];
+      }
+      if (control && Array.isArray(control.qualityList) && control.qualityList.length) {
+        cachedQualityOptions = control.qualityList;
+      }
+      return typeof vm.selectPlaybackQuality === 'function' ? cachedQualityOptions :
+        control && Array.isArray(control.qualityList) ? control.qualityList : [];
+    }
+
     function selectQuality(definition) {
       var control = qualityControl(vm.$refs.player);
-      var choice = control && Array.isArray(control.qualityList) && control.qualityList.find(function (item) {
+      var choice = qualityOptions(control).find(function (item) {
         return item.fn === definition;
       });
       toggleQuality(false);
-      if (!choice || typeof control.setQuality !== 'function') {
+      if (!choice || (typeof vm.selectPlaybackQuality !== 'function' && (!control || typeof control.setQuality !== 'function'))) {
         status.textContent = '当前频道的画质选项尚未加载。';
         return;
       }
-      control.setQuality(choice);
+      if (typeof vm.selectPlaybackQuality === 'function') vm.selectPlaybackQuality(definition);
+      else control.setQuality(choice);
       if (window.yspStandaloneTV && window.__yspTvSaveQuality) window.__yspTvSaveQuality(definition);
     }
 
@@ -200,13 +215,13 @@
       if (qualityMenu) {
         var player = vm.$refs.player;
         var control = qualityControl(player);
-        var options = control && Array.isArray(control.qualityList) ? control.qualityList : [];
+        var options = qualityOptions(control);
         if (!options.length) status.textContent = '画质选项正在加载，请稍后再试。';
         options.forEach(function (option) {
           var item = button(toolbar, [option.cname, option.name].filter(Boolean).join(' '), function () {
             selectQuality(option.fn);
           });
-          item.setAttribute('aria-pressed', String(option.fn === player.currDef));
+          item.setAttribute('aria-pressed', String(Boolean(player && option.fn === player.currDef)));
           rows[0].push(item);
         });
         rows[0].push(button(toolbar, '返回', function () { toggleQuality(false); }));
