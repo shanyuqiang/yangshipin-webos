@@ -89,6 +89,15 @@
     var ChannelPlayer = libraries.Vue.extend({
       extends: libraries.Player,
       methods: {
+        getLiveUrlsByVid: function (pid, vid, definition, adjust) {
+          var original = libraries.Player.methods.getLiveUrlsByVid;
+          if (definition !== undefined || adjust !== undefined) return original.apply(this, arguments);
+          var preferred;
+          try { preferred = window.sessionStorage.getItem('ysp-tv-quality'); }
+          catch (error) { /* Let the SDK use its default. */ }
+          if (['fhd', 'shd', 'hd'].indexOf(preferred) !== -1) return original.call(this, pid, vid, preferred, 1);
+          return original.apply(this, arguments);
+        },
         onPvTotal: function (event) {
           return notifyVideoReady(this, libraries.Player.methods.onPvTotal, event);
         }

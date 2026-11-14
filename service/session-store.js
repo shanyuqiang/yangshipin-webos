@@ -5,6 +5,10 @@ var NAMES = ['ysp_openid', 'ysp_yspOpenid', 'strVideotoken', 'endtime', 'ysp_app
   'ysp_strAccesstoken', 'ysp_strRefreshtoken', 'ysp_strOpenid', 'ysp_currentLoginId',
   'uinfo_logintype', 'uinfo_refreshed', 'uinfo_expired_time', 'yspopenid', 'ysp_uinfo_pc'];
 
+function validQuality(quality) {
+  return ['fhd', 'shd', 'hd'].indexOf(quality) !== -1;
+}
+
 function checkedCookie(input) {
   if (!input || NAMES.indexOf(input.name) === -1 || typeof input.value !== 'string'
       || Buffer.byteLength(input.value, 'utf8') > 8192
@@ -91,14 +95,16 @@ function createSessionStore(service, options) {
     return cookies.filter(function (cookie) { return cookie.value && (cookie.expiresAt === null || cookie.expiresAt > now()); });
   }
 
-  function replace(next, nextGeneration, changedName) {
+  function replace(next, nextGeneration, changedName, quality) {
+    if (quality === undefined) quality = record.quality;
     if (Buffer.byteLength(JSON.stringify(next), 'utf8') > 65536) return Promise.reject(new Error('Session storage limit'));
     var persistent = next.filter(function (cookie) { return cookie.expiresAt !== null && cookie.expiresAt > now(); });
-    if (generation === nextGeneration && JSON.stringify(record.cookies) === JSON.stringify(persistent)) {
+    if (generation === nextGeneration && quality === record.quality && JSON.stringify(record.cookies) === JSON.stringify(persistent)) {
       cookies = next;
       return Promise.resolve({ generation: generation });
     }
     var object = { _kind: KIND, cookies: persistent, generation: nextGeneration };
+    if (validQuality(quality)) object.quality = quality;
     if (record._id) { object._id = record._id; object._rev = record._rev; }
     var writeContext = { name: changedName, clear: nextGeneration !== generation };
     return call('put', { objects: [object] }, writeContext).then(function (result) {
@@ -109,6 +115,7 @@ function createSessionStore(service, options) {
         throw new Error('Session storage failed');
       }
       record = { _kind: KIND, _id: updated.id, _rev: updated.rev, cookies: persistent, generation: nextGeneration };
+      if (validQuality(quality)) record.quality = quality;
       cookies = next;
       generation = nextGeneration;
       return { generation: generation };
@@ -117,7 +124,11 @@ function createSessionStore(service, options) {
 
   return {
     load: function () {
-      return enqueue(function () { return { cookies: live().map(checkedCookie), generation: generation }; });
+      return enqueue(function () {
+        var result = { cookies: live().map(checkedCookie), generation: generation };
+        if (validQuality(record.quality)) result.quality = record.quality;
+        return result;
+      });
     },
     save: function (input) {
       var cookie;
@@ -135,6 +146,11 @@ function createSessionStore(service, options) {
         return replace(keep ? remaining.concat([cookie]) : remaining, generation, cookie.name);
       });
     },
+    saveQuality: function (input) {
+      var quality = input && input.quality;
+      if (!validQuality(quality)) return Promise.reject(new Error('Invalid quality'));
+      return enqueue(function () { return replace(live(), generation, undefined, quality); });
+    },
     clear: function () {
       return enqueue(function () {
         if (!Number.isSafeInteger(generation + 1)) throw new Error('Session storage limit');
@@ -145,7 +161,7 @@ function createSessionStore(service, options) {
 }
 
 function registerSessionMethods(service, store) {
-  [['loadSession', 'load'], ['saveSessionCookie', 'save'], ['clearSession', 'clear']].forEach(function (entry) {
+  [['loadSession', 'load'], ['saveSessionCookie', 'save'], ['clearSession', 'clear'], ['saveQuality', 'saveQuality']].forEach(function (entry) {
     service.register(entry[0], function (message) {
       if (message.sender !== APP) { message.respond({ returnValue: false, errorText: 'Session access denied' }); return; }
       store[entry[1]](message.payload).then(function (result) {

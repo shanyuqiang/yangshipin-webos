@@ -178,6 +178,7 @@
         return;
       }
       control.setQuality(choice);
+      if (window.yspStandaloneTV && window.__yspTvSaveQuality) window.__yspTvSaveQuality(definition);
     }
 
     function renderActions() {

@@ -72,6 +72,18 @@
     });
   };
 
+  window.__yspTvSaveQuality = function (quality) {
+    if (['fhd', 'shd', 'hd'].indexOf(quality) === -1) return;
+    try { window.sessionStorage.setItem('ysp-tv-quality', quality); }
+    catch (error) { /* Playback can still change quality without browser storage. */ }
+    if (!window.PalmServiceBridge) return;
+    call('saveQuality', {quality:quality}, function (result) {
+      if (result.returnValue) return;
+      var status = document.getElementById('ysp-tv-shell-status');
+      if (status) status.textContent = '本次画质已选择，重开应用后可能需要重新选择。';
+    });
+  };
+
   function clearLocal() {
     names.forEach(function (name) {
       document.cookie = (window.__yspTvAdapter ? '' : 'ysp_tv_') + name + '=; Path=/; Max-Age=0';
@@ -96,7 +108,11 @@
           (typeof item.expiresAt === 'number' && isFinite(item.expiresAt) && item.expiresAt > Date.now()));
       });
       if (valid.length !== result.cookies.length) { fail(); return; }
-      try { window.sessionStorage.setItem('ysp-tv-session-generation', String(result.generation)); }
+      try {
+        window.sessionStorage.setItem('ysp-tv-session-generation', String(result.generation));
+        if (['fhd', 'shd', 'hd'].indexOf(result.quality) !== -1) window.sessionStorage.setItem('ysp-tv-quality', result.quality);
+        else window.sessionStorage.removeItem('ysp-tv-quality');
+      }
       catch (error) { fail(); return; }
       clearLocal();
       valid.forEach(function (item) {

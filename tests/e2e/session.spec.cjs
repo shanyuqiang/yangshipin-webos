@@ -15,10 +15,11 @@ async function setup(page, failure) {
         const payload = JSON.parse(body);
         let response = {returnValue: true};
         if (uri.endsWith('/loadSession')) response = failure === 'load' ? {returnValue: false} : {
-          returnValue: true, generation: 3,
+          returnValue: true, generation: 3, quality: 'shd',
           cookies: [{name: 'ysp_openid', value: 'test-only', expiresAt: failure === 'session-only' ? null : Date.now() + 60000}]
         };
         if (uri.endsWith('/saveSessionCookie')) sessionStorage.setItem('savedPayload', JSON.stringify(payload));
+        if (uri.endsWith('/saveQuality')) sessionStorage.setItem('savedQualityPayload', JSON.stringify(payload));
         if (uri.endsWith('/clearSession')) response = failure === 'clear' ? {returnValue: false} : {returnValue: true, generation: 4};
         this.onservicecallback(JSON.stringify(response));
       };
@@ -81,4 +82,14 @@ test('failed persistent signout is not reported as success and blocks late refre
   await page.evaluate(() => window.__yspTvSessionCookieChanged('strVideotoken=late; Max-Age=60'));
   expect(await page.evaluate(() => sessionStorage.getItem('savedPayload'))).toBe(null);
   expect((await context.cookies()).find(c => c.name === 'ysp_tv_ysp_openid').value).toBe('test-only');
+});
+
+test('restored quality is available at startup and a manual choice is persisted privately', async ({page}) => {
+  await setup(page);
+  await page.goto('/restore');
+  await expect(page).toHaveURL(/\/standalone$/);
+  expect(await page.evaluate(() => sessionStorage.getItem('ysp-tv-quality'))).toBe('shd');
+  await page.evaluate(() => window.__yspTvSaveQuality('hd'));
+  expect(await page.evaluate(() => sessionStorage.getItem('ysp-tv-quality'))).toBe('hd');
+  expect(await page.evaluate(() => JSON.parse(sessionStorage.getItem('savedQualityPayload')))).toEqual({quality:'hd'});
 });

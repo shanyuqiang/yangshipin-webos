@@ -47,7 +47,7 @@ test('only the app sender can load, save or clear; DB kind remains private to se
   const db = fakeDB();
   const store = createSessionStore(db.service,{now:()=>1000});
   registerSessionMethods(db.service,store);
-  for (const method of ['loadSession','saveSessionCookie','clearSession']) {
+  for (const method of ['loadSession','saveSessionCookie','clearSession','saveQuality']) {
     const denied = await new Promise(resolve => db.handlers[method]({sender:'other.app',payload:persistent('test'),respond:resolve}));
     assert.equal(denied.returnValue,false);
   }
@@ -262,4 +262,16 @@ test('an uncertain same-name replacement cannot restore its previous temporary v
   loseNextPutReply(db);
   await assert.rejects(save(store,{name:'strVideotoken',value:'new-temporary',expiresAt:null}),/Session storage timeout/);
   assert.deepEqual(await store.load(),{cookies:[],generation:0});
+});
+
+test('quality survives service restart, cookie writes and logout', async () => {
+  const db = fakeDB();
+  const store = createSessionStore(db.service,{now:()=>1000});
+  await assert.rejects(store.saveQuality({quality:'invalid'}), /Invalid quality/);
+  await store.saveQuality({quality:'shd'});
+  await save(store,persistent('test-token'));
+  await store.clear();
+  assert.deepEqual(await createSessionStore(db.service,{now:()=>1000}).load(),{
+    cookies:[], generation:1, quality:'shd'
+  });
 });

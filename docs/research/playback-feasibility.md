@@ -96,3 +96,9 @@ Pressing Confirm on a programme entry now explains that the guide is for browsin
 CCTV1 at 720p fullscreen on the LG (build b176389) advanced 130.0 seconds over the 125.0-second sample, with 3,189 additional decoded frames and four dropped frames. No waiting or media error events were recorded; one stalled event occurred. The longest sampled interval without clock advance was 2.97 seconds; 25 sampling gaps exceeded 1.5 seconds, so this is not an exact display-freeze duration. Minimum observed buffer was 4.36 seconds. The sample had no background intervals or player replacement. This was a separate live window and display mode from the earlier 1080p test, so it supports 720p fullscreen as a viewing option without establishing a causal comparison. The device was left playing in that mode.
 
 The monitor reports dropped-frame count divided by decoded-frame count during the stable window, with a warning at 5%. It reports unverified if counters are missing or go backwards. The warning is distinct from the existing decoding/progression verdict and does not certify smooth playback.
+
+## Remembered quality
+
+A manually selected resolution is saved in the television's private service record. Later channel and startup requests use the selection with upstream automatic adjustment enabled. A manual switch still goes through the official control with its original explicit request. Logout retains the playback preference.
+
+On the LG, selecting 720p stored `shd`. Switching to Hunan TV then requested `shd` with adjustment enabled and decoded at width 1280. After fully closing and relaunching the app, CCTV1 restored the same preference and decoded at width 1280. The first relaunch was backgrounded by the TV UI; after returning it to foreground, the restored request and advancing frames were observed. These checks cover preference restoration, not long-run smoothness or signed-in account retention.
