@@ -112,7 +112,7 @@
     return new libraries.Vue({
       data: {
         tvTabs:groups, selectIndex:group, tvIndex:null, jiemudanInfo:[],
-        jiemuNowDate:'', nowPlayItem:'', videoConfig:null
+        jiemuNowDate:'', nowPlayItem:'', videoConfig:null, playerRevision:0
       },
       created: function () { this.changeTV(initial); },
       methods: {
@@ -124,6 +124,10 @@
             viewRights:channel.viewRights, payType:channel.payType};
           history.replaceState(null, '', '?pid=' + encodeURIComponent(channel.pid));
           this.changeDay(today.replace(/-/g, ''));
+        },
+        retryPlayback: function () {
+          window.yspChannelGeneration++;
+          this.playerRevision++;
         },
         changeDay: function (day) {
           var vm = this;
@@ -142,7 +146,7 @@
         }
       },
       render: function (h) {
-        return h(ChannelPlayer, {key:this.videoConfig.pid, ref:'player', props:{videoConfig:this.videoConfig}});
+        return h(ChannelPlayer, {key:this.videoConfig.pid + ':' + this.playerRevision, ref:'player', props:{videoConfig:this.videoConfig}});
       }
     }).$mount('#player-mount');
   }

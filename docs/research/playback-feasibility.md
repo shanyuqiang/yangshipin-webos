@@ -106,3 +106,9 @@ On the LG, selecting 720p stored `shd`. Switching to Hunan TV then requested `sh
 On the remembered-quality build (578b5b4), CCTV1 at 720p fullscreen advanced 124.5 seconds over the 122.5-second sample, with 3,060 decoded frames and none dropped. There was one waiting event (11.8 seconds buffered), two stalled events, and no media errors. Back restored focus to the fullscreen button. The observation confirms long playback and fullscreen navigation on that build, with occasional buffering events still present. The rapid-selection regression independently verifies that confirming the current channel cancels a pending switch before its animation-frame callback can run.
 
 Hunan TV at 720p fullscreen on 578b5b4 advanced 123.8 seconds over the 129.4-second sample, with 3,202 decoded frames and 16 dropped. There was one waiting event with 11.9 seconds buffered, one stalled event, and no media error. Back again restored focus to the fullscreen button. The follow-up TV package includes the rapid-selection fix (4aff440); 86 unit and 30 browser tests passed. The sampling results establish continued playback for both channels at the saved quality, with isolated waiting events; they do not establish stall-free viewing.
+
+## In-session stream retry
+
+The standalone toolbar can retry the active stream without reloading the UI. Retry replaces the player and invalidates old decoder callbacks while retaining the current channel, programme date and remembered quality.
+
+On the LG, a debugger rule blocked only the live-address request, and the SDK reported a playback error. After removing the rule, remote Enter on Retry recreated the player. The app retained CCTV1, its selected date and all 37 guide entries. It kept focus on Retry, held a single video element, and resumed 720p decoding without a media error. The TV network configuration was unchanged. The fault injection and recovery also passed on desktop with the live upstream.

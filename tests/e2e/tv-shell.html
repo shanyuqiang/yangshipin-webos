@@ -39,6 +39,7 @@ if (location.search !== '?pending') document.querySelector('#app').__vue__ = vm;
 </script>
 <script>
 if (location.search === '?standalone') {
+  vm.retryPlayback = () => calls.push('retry:'+vm.tvIndex.pid);
   window.yspStandaloneTV = vm;
   window.yspLogin = {default:{
     isSigned: () => Promise.resolve(false),

@@ -47,6 +47,7 @@
     buffering.className = 'tv-shell-buffering';
     buffering.setAttribute('aria-live', 'polite');
     var bufferTimer;
+    var retrying = false;
     function clearBuffering() {
       clearTimeout(bufferTimer);
       bufferTimer = null;
@@ -56,6 +57,11 @@
       document.addEventListener(name, function (event) {
         var video = event.target;
         if (video !== document.querySelector('.tv-main-con-l-vid video')) return;
+        if (retrying && (name === 'playing' || name === 'error')) {
+          retrying = false;
+          if (name === 'error') status.textContent = '播放失败，请重试。';
+          else updateProgramme();
+        }
         if (name !== 'waiting') {
           clearBuffering();
         } else if (!bufferTimer && !buffering.textContent) {
@@ -131,6 +137,7 @@
       var player = vm.$refs.player;
       var failed = player && player.errorInfos;
       status.textContent = failed ? '播放遇到问题，可查看播放器提示或重试。' :
+        retrying ? '正在重试播放…' :
         (typeof vm.nowPlayItem === 'string' ? vm.nowPlayItem : vm.nowPlayItem && vm.nowPlayItem.name) || '';
       var wasFocused = programmes.contains(document.activeElement);
       programmes.textContent = '';
@@ -226,7 +233,14 @@
             account.dispatchEvent(new MouseEvent('mouseenter'));
           }
         }));
-        rows[0].push(button(toolbar, '刷新', function () { window.location.reload(); }));
+        if (typeof vm.retryPlayback === 'function') {
+          rows[0].push(button(toolbar, '重试播放', function () {
+            clearBuffering();
+            retrying = true;
+            status.textContent = '正在重试播放…';
+            vm.retryPlayback();
+          }));
+        } else rows[0].push(button(toolbar, '刷新', function () { window.location.reload(); }));
       }
     }
 
@@ -323,8 +337,8 @@
     vm.$watch('jiemudanInfo', updateProgramme);
     vm.$watch('nowPlayItem', updateProgramme);
     vm.$watch('jiemuNowDate', renderDateSelection);
-    vm.$watch('tvIndex', function () { clearBuffering(); renderDates(); updateProgramme(); });
-    vm.$watch(function () { return [vm.videoConfig, vm.$refs.player && vm.$refs.player.errorInfos]; }, updateProgramme);
+    vm.$watch('tvIndex', function () { retrying = false; clearBuffering(); renderDates(); updateProgramme(); });
+    vm.$watch(function () { return [vm.videoConfig, vm.playerRevision, vm.$refs.player && vm.$refs.player.errorInfos]; }, updateProgramme);
     root.addEventListener('focusin', function (event) {
       rows.some(function (items, index) {
         var position = items.indexOf(event.target);

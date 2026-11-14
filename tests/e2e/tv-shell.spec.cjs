@@ -137,3 +137,14 @@ test('confirming the current channel cancels a queued switch', async ({page}) =>
   await expect(page.getByRole('status')).not.toContainText('正在切换');
   expect(await page.evaluate(() => window.calls)).toEqual([]);
 });
+
+test('TV retry restarts only the current stream and preserves focus', async ({page}) => {
+  await page.goto('/tv-shell?standalone');
+  const retry = page.getByRole('button', {name:'重试播放'});
+  await retry.focus();
+  await page.keyboard.press('Enter');
+  await expect(retry).toBeFocused();
+  await expect(page.getByRole('button', {name:'CCTV1'})).toHaveAttribute('aria-current', 'true');
+  await expect(page.getByRole('status')).toContainText('正在重试');
+  expect(await page.evaluate(() => window.calls)).toEqual(['retry:1']);
+});
