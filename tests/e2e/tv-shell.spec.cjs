@@ -82,10 +82,19 @@ test('Back closes the login dialog before returning to the TV interface', async 
   await page.keyboard.press('Enter');
   await page.keyboard.press('Enter');
   await expect(page.getByLabel('手机号')).toBeVisible();
+  await expect(page.locator('#desktop-nav')).toBeHidden();
+  await expect(page.getByRole('main', {name:'央视频直播'})).toBeVisible();
   const back = () => page.evaluate(() => document.activeElement.dispatchEvent(new KeyboardEvent('keydown', {keyCode:461, bubbles:true})));
   await back();
   await expect(page.getByLabel('手机号')).toBeHidden();
   await back();
   await expect(page.getByRole('main', {name:'央视频直播'}).getByRole('button', {name:'账号'})).toBeFocused();
   expect(await page.evaluate(() => window.closedByApp)).toBe(0);
+});
+
+test('startup keeps the desktop page hidden while the TV controls load', async ({page}) => {
+  await page.goto('/tv-shell?pending');
+  await expect(page.getByRole('heading', {name:'央视频直播'})).toBeVisible();
+  await expect(page.getByText('正在加载频道…')).toBeVisible();
+  await expect(page.locator('#desktop-nav')).toBeHidden();
 });

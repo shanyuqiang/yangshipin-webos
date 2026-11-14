@@ -114,7 +114,8 @@ test('remote retry returns from an upstream failure to the recovered page', asyn
   const retry = page.waitForResponse(url);
   await page.keyboard.press('Enter');
   expect((await retry).status()).toBe(200);
-  await expect(page.getByRole('heading', {name:'央视频已恢复'})).toBeVisible();
+  await expect(page.locator('h1').filter({hasText:'央视频已恢复'})).toBeAttached();
+  await expect(page.getByText('正在加载频道…')).toBeVisible();
 });
 
 test('TV toolbar stays within 1080p safe area and has readable text at focus edges', async ({page}) => {

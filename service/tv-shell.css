@@ -1,7 +1,7 @@
 #ysp-tv-shell { display:none }
 body.tv-shell-active { background:#111820!important; color:#f0f4f8; overflow:hidden }
 .tv-shell-active #ysp-tv-tools,.tv-shell-active .tv-main-con-r,.tv-shell-active .tv-zhan,
-.tv-shell-active .header-fixed,.tv-shell-active .max-footer { display:none!important }
+.tv-shell-active:not(.tv-shell-account) .header-fixed,.tv-shell-active .max-footer { display:none!important }
 .tv-shell-active #app { background:none!important }
 .tv-shell-active .tv-main-con-l-vid { position:fixed!important; left:4vw; top:5vh; width:65vw!important; height:63vh!important; z-index:10; margin:0!important; background:#000 }
 .tv-shell-active .tv-main-con-l-vid > div,.tv-shell-active .tv-main-con-l-vid .c-container { width:100%!important; height:100%!important }
@@ -22,3 +22,13 @@ body.tv-shell-active { background:#111820!important; color:#f0f4f8; overflow:hid
 .tv-shell-guide li { list-style:none; font-size:.86em; line-height:1.45; padding-left:.4em }
 .tv-shell-guide li[aria-current] { color:#8bd8ff }
 .tv-shell-guide li:focus { background:#eefaff; color:#152332; outline:0 }
+
+html.tv-shell-loading body { visibility:hidden; background:#111820!important; overflow:hidden }
+#ysp-tv-loading { visibility:visible; position:fixed; top:0; right:0; bottom:0; left:0; z-index:2147483647; background:#111820; color:#f0f4f8; padding:8vh 6vw; font:28px system-ui,sans-serif }
+#ysp-tv-loading button { font:inherit; padding:.4em 1em }
+#ysp-tv-loading button:focus { outline:4px solid #73d3ff }
+.tv-shell-account .header-fixed { visibility:hidden }
+.tv-shell-account .header-b-r-item5,
+.tv-shell-account .winA-mask-unLogin,
+.tv-shell-account .winA-mask-login { visibility:visible }
+.tv-shell-account #ysp-tv-tools { display:none!important }

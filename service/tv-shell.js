@@ -2,6 +2,7 @@
   'use strict';
   var categories = ['央视', '卫视'];
   var keys = [37, 38, 39, 40, 13, 461];
+  document.documentElement.classList.add('tv-shell-loading');
 
   function make(tag, text, parent) {
     var element = document.createElement(tag);
@@ -179,9 +180,9 @@
         }));
         rows[0].push(button(toolbar, '画质', function () { toggleQuality(true); }));
         rows[0].push(button(toolbar, '账号', function () {
-          document.body.classList.remove('tv-shell-active');
           var account = document.querySelector('.header-b-r-item5');
           if (account) {
+            document.body.classList.add('tv-shell-account');
             account.tabIndex = -1;
             account.focus();
             account.dispatchEvent(new MouseEvent('mouseenter'));
@@ -203,12 +204,12 @@
       var full = document.fullscreenElement || document.webkitFullscreenElement;
       if (full) {
         if (key === 461) (document.exitFullscreen || document.webkitExitFullscreen).call(document);
-      } else if (!document.body.classList.contains('tv-shell-active')) {
+      } else if (document.body.classList.contains('tv-shell-account')) {
         var closeLogin = document.querySelector('.ysplogin-signin-close');
         if (key !== 461 || (closeLogin && closeLogin.offsetHeight)) return;
         var account = document.querySelector('.header-b-r-item5');
         if (account) account.dispatchEvent(new MouseEvent('mouseleave'));
-        document.body.classList.add('tv-shell-active');
+        document.body.classList.remove('tv-shell-account');
         focus(0, 2);
       } else if (key === 461) {
         if (qualityMenu) toggleQuality(false);
@@ -274,11 +275,33 @@
   }
 
   document.addEventListener('DOMContentLoaded', function () {
+    var loading = make('main', '', document.body);
+    loading.id = 'ysp-tv-loading';
+    make('h1', '央视频直播', loading);
+    var message = make('p', '正在加载频道…', loading);
+    var retry = button(loading, '重试', function () { window.location.reload(); });
+    retry.hidden = true;
+    function exit(event) {
+      if (event.keyCode !== 461) return;
+      event.preventDefault();
+      event.stopImmediatePropagation();
+      window.close();
+    }
+    window.addEventListener('keydown', exit, true);
     var attempts = 0;
     function start() {
       var vm = findTV();
-      if (vm) install(vm);
-      else if (attempts++ < 120) window.setTimeout(start, 250);
+      if (vm) {
+        loading.remove();
+        document.documentElement.classList.remove('tv-shell-loading');
+        install(vm);
+        window.removeEventListener('keydown', exit, true);
+      } else if (attempts++ < 120) window.setTimeout(start, 250);
+      else {
+        message.textContent = '暂时无法加载频道，请重试。';
+        retry.hidden = false;
+        retry.focus();
+      }
     }
     start();
   });

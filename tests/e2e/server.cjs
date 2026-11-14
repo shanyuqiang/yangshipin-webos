@@ -15,7 +15,7 @@ const files = {
   '/start.js': ['app/start.js', 'application/javascript']
 };
 http.createServer((req, res) => {
-  const target = files[req.url];
+  const target = files[req.url.split('?')[0]];
   if (!target) { res.writeHead(404); res.end(); return; }
   fs.readFile(path.join(root, target[0]), (error, data) => {
     res.writeHead(error ? 500 : 200, {'Content-Type': target[1]});
