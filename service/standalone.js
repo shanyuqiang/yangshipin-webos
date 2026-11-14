@@ -1,5 +1,24 @@
 (function () {
   'use strict';
+  function notifyVideoReady(player, original, event) {
+    var video = player.myVideo && player.myVideo.myvideo;
+    if (!video || video.paused) return original.call(player, event);
+    // The SDK pauses every video on repeated readiness, even its own active video.
+    var pause = Object.getOwnPropertyDescriptor(video, 'pause');
+    if (pause && !pause.configurable) return original.call(player, event);
+    Object.defineProperty(video, 'pause', {configurable:true, value:function () {}});
+    try { return original.call(player, event); }
+    finally {
+      if (pause) Object.defineProperty(video, 'pause', pause);
+      else delete video.pause;
+    }
+  }
+
+  if (typeof module === 'object' && typeof window === 'undefined') {
+    module.exports = {notifyVideoReady:notifyVideoReady};
+    return;
+  }
+
   var expired = false;
   var assets = [
     'https://s.yangshipin.cn/CCTVVideo/CCTVVideoAssets/v11/js/zepto.min.js',
@@ -63,6 +82,11 @@
     var initial = groups[group].find(function (channel) { return channel.pid === selected; }) || groups[0][0];
     var ChannelPlayer = libraries.Vue.extend({
       extends: libraries.Player,
+      methods: {
+        onPvTotal: function (event) {
+          return notifyVideoReady(this, libraries.Player.methods.onPvTotal, event);
+        }
+      },
       beforeDestroy: function () {
         if (this.myVideo) {
           clearInterval(this.myVideo.cycleInterTime);
