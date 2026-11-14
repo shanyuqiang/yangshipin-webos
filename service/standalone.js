@@ -104,7 +104,9 @@
     var offset = serverTime - Date.now();
     var catalogue = window.yspCatalogue;
     var currentRequest = 0;
-    var today = new Date(serverTime + 8 * 3600000).toISOString().slice(0, 10);
+    var programmeTimer;
+    function now() { return Date.now() + offset; }
+    function today() { return new Date(now() + 8 * 3600000).toISOString().slice(0, 10); }
     var selected = new URLSearchParams(location.search).get('pid');
     var group = groups[1].some(function (channel) { return channel.pid === selected; }) ? 1 : 0;
     var initial = groups[group].find(function (channel) { return channel.pid === selected; }) || groups[0][0];
@@ -137,20 +139,33 @@
         tvTabs:groups, selectIndex:group, tvIndex:null, jiemudanInfo:[],
         jiemuNowDate:'', nowPlayItem:'', videoConfig:null, playerRevision:0
       },
-      created: function () { this.changeTV(initial); },
+      created: function () {
+        this.changeTV(initial);
+        programmeTimer = setInterval(this.updateLiveProgramme, 5000);
+      },
+      beforeDestroy: function () { clearInterval(programmeTimer); currentRequest++; },
       methods: {
         changeIndex: function (index) { this.selectIndex = index; },
         changeTV: function (channel) {
           window.yspChannelGeneration = (window.yspChannelGeneration || 0) + 1;
-          this.tvIndex = Object.assign({}, channel, {parseDateList1:dates(channel, today)});
+          var date = today();
+          this.tvIndex = Object.assign({}, channel, {parseDateList1:dates(channel, date)});
           this.videoConfig = {pid:channel.pid, vid:channel.streamId, isTV:true, autoplay:true,
             viewRights:channel.viewRights, payType:channel.payType};
           history.replaceState(null, '', '?pid=' + encodeURIComponent(channel.pid));
-          this.changeDay(today.replace(/-/g, ''));
+          this.changeDay(date.replace(/-/g, ''));
         },
         retryPlayback: function () {
           window.yspChannelGeneration++;
           this.playerRevision++;
+        },
+        updateLiveProgramme: function () {
+          if (!this.jiemudanInfo.length) return;
+          var marked = catalogue.markCurrentProgramme(this.jiemudanInfo, Math.floor(now() / 1000));
+          if (marked.entries.some(function (entry, index) { return entry !== this.jiemudanInfo[index]; }, this)) {
+            this.jiemudanInfo = marked.entries;
+          }
+          this.nowPlayItem = marked.currentName;
         },
         changeDay: function (day) {
           var vm = this;
@@ -160,9 +175,8 @@
           vm.nowPlayItem = '';
           read('https://capi.yangshipin.cn/api/yspepg/program/' + vm.tvIndex.pid + '/' + day).then(function (data) {
             if (request !== currentRequest) return;
-            vm.jiemudanInfo = catalogue.guide(data, Math.floor((Date.now() + offset) / 1000));
-            var current = vm.jiemudanInfo.find(function (entry) { return entry.sta === 2; });
-            vm.nowPlayItem = current ? current.name : '';
+            vm.jiemudanInfo = catalogue.guide(data);
+            vm.updateLiveProgramme();
           }).catch(function () {
             if (request === currentRequest) vm.nowPlayItem = '节目单暂时不可用';
           });

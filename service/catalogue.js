@@ -81,13 +81,24 @@
     return groups;
   }
 
-  function guide(bytes, now) {
+  function guide(bytes) {
     return message(bytes).map(function (entry) {
       return {
         name: decode(first(entry, 2)), startTime: decode(first(entry, 5)),
-        sta: first(entry, 3) <= now && now < first(entry, 4) ? 2 : 0
+        begins: first(entry, 3), ends: first(entry, 4), sta: 0
       };
     });
+  }
+
+  function markCurrentProgramme(entries, now) {
+    var current = entries.findIndex(function (entry) { return entry.begins <= now && now < entry.ends; });
+    return {
+      currentName: current === -1 ? '' : entries[current].name,
+      entries: entries.map(function (entry, index) {
+        var status = index === current ? 2 : 0;
+        return status === entry.sta ? entry : Object.assign({}, entry, {sta:status});
+      })
+    };
   }
 
   function serverTime(bytes) {
@@ -97,7 +108,7 @@
     return time;
   }
 
-  var api = {channels:channels, guide:guide, serverTime:serverTime};
+  var api = {channels:channels, guide:guide, markCurrentProgramme:markCurrentProgramme, serverTime:serverTime};
   if (typeof module === 'object') module.exports = api;
   else window.yspCatalogue = api;
 }());

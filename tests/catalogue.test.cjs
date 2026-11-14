@@ -27,11 +27,23 @@ test('channel catalogue preserves groups, identities, dates and packed rights', 
 test('guide marks the current programme from server time', () => {
   const entry = record(field(2,'新闻'),field(3,100),field(4,200),field(5,'01:00'));
   assert.equal(serverTime(response(field(1,1794590000000))),1794590000000);
-  assert.deepEqual(guide(response(entry),150),[{name:'新闻',startTime:'01:00',sta:2}]);
-  assert.equal(guide(response(entry),200)[0].sta,0);
+  assert.equal(require('../service/catalogue').markCurrentProgramme(guide(response(entry)),150).currentName,'新闻');
 });
 
 test('truncated data and upstream errors are rejected', () => {
   assert.throws(() => channels(Buffer.from([8,200,1,18,10,1])), /length/);
   assert.throws(() => guide(field(1,403),0), /failed/);
+});
+
+test('a loaded schedule advances at programme boundaries without being fetched or mutated', () => {
+  const {markCurrentProgramme} = require('../service/catalogue');
+  const news = record(field(2,'新闻'),field(3,100),field(4,200),field(5,'01:00'));
+  const film = record(field(2,'电影'),field(3,200),field(4,300),field(5,'02:00'));
+  const entries = guide(response(news,film));
+  assert.equal(markCurrentProgramme(entries,199).currentName,'新闻');
+  const next = markCurrentProgramme(entries,200);
+  assert.equal(next.currentName,'电影');
+  assert.deepEqual(next.entries.map(e=>e.sta), [0,2]);
+  assert.deepEqual(entries.map(e=>e.sta), [0,0]);
+  assert.equal(markCurrentProgramme(entries,300).currentName,'');
 });
