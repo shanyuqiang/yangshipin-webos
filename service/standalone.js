@@ -14,8 +14,13 @@
     }
   }
 
+  function limitLiveHistory(Hls) {
+    var config = Hls && Hls.DefaultConfig;
+    if (config && config.backBufferLength > 24) config.backBufferLength = 24;
+  }
+
   if (typeof module === 'object' && typeof window === 'undefined') {
-    module.exports = {notifyVideoReady:notifyVideoReady};
+    module.exports = {notifyVideoReady:notifyVideoReady, limitLiveHistory:limitLiveHistory};
     return;
   }
 
@@ -43,6 +48,7 @@
   }
 
   function requirePlayer() {
+    limitLiveHistory(window.Hls);
     var modules = window.webpackJsonp[0][1];
     var cache = Object.create(null);
     function load(id) {

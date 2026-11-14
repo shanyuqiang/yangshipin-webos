@@ -27,3 +27,14 @@ test('restores native pause even if the official readiness handler fails', () =>
   assert.equal(Object.hasOwn(video, 'pause'), false);
   assert.equal(video.pause, prototype.pause);
 });
+
+test('the live player bounds retained history and leaves other HLS options intact', () => {
+  const {limitLiveHistory} = require('../service/standalone');
+  const defaults = {backBufferLength:Infinity, maxBufferLength:30, enableWorker:false};
+  limitLiveHistory({DefaultConfig:defaults});
+  assert.deepEqual(defaults, {backBufferLength:24, maxBufferLength:30, enableWorker:false});
+  const shorter = {backBufferLength:12};
+  limitLiveHistory({DefaultConfig:shorter});
+  assert.equal(shorter.backBufferLength,12);
+  assert.doesNotThrow(() => limitLiveHistory(undefined));
+});
