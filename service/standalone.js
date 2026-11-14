@@ -19,8 +19,30 @@
     if (config && config.backBufferLength > 24) config.backBufferLength = 24;
   }
 
+  function manageLiveHeartbeat(live, cancel) {
+    var disposed = false;
+    function clear() {
+      if (live.cycleInterTime != null) cancel(live.cycleInterTime);
+      live.cycleInterTime = null;
+    }
+    // The SDK overwrites the timer ID on source initialization and quality reset.
+    ['initTimes', 'initStep5'].forEach(function (name) {
+      var original = live[name];
+      if (typeof original !== 'function') return;
+      live[name] = function () {
+        if (disposed) return;
+        clear();
+        return original.apply(this, arguments);
+      };
+    });
+    return function () {
+      disposed = true;
+      clear();
+    };
+  }
+
   if (typeof module === 'object' && typeof window === 'undefined') {
-    module.exports = {notifyVideoReady:notifyVideoReady, limitLiveHistory:limitLiveHistory};
+    module.exports = {notifyVideoReady:notifyVideoReady, limitLiveHistory:limitLiveHistory, manageLiveHeartbeat:manageLiveHeartbeat};
     return;
   }
 
@@ -102,11 +124,12 @@
           return notifyVideoReady(this, libraries.Player.methods.onPvTotal, event);
         }
       },
+      mounted: function () {
+        if (this.myVideo) this.disposeLiveHeartbeat = manageLiveHeartbeat(this.myVideo, clearInterval);
+      },
       beforeDestroy: function () {
-        if (this.myVideo) {
-          clearInterval(this.myVideo.cycleInterTime);
-          this.destroyedLive();
-        }
+        if (this.disposeLiveHeartbeat) this.disposeLiveHeartbeat();
+        if (this.myVideo) this.destroyedLive();
       }
     });
     return new libraries.Vue({

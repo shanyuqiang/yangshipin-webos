@@ -38,3 +38,21 @@ test('the live player bounds retained history and leaves other HLS options intac
   assert.equal(shorter.backBufferLength,12);
   assert.doesNotThrow(() => limitLiveHistory(undefined));
 });
+
+test('SDK quality resets and repeated source setup release the old heartbeat', () => {
+  const {manageLiveHeartbeat} = require('../service/standalone');
+  const cleared = [];
+  const live = {
+    cycleInterTime: 1,
+    initTimes() { this.cycleInterTime = null; },
+    initStep5(value) { this.cycleInterTime = value; }
+  };
+  const dispose = manageLiveHeartbeat(live, id => cleared.push(id));
+  live.initTimes();
+  live.initStep5(2);
+  live.initStep5(3);
+  dispose();
+  live.initStep5(4);
+  assert.deepEqual(cleared, [1, 2, 3]);
+  assert.equal(live.cycleInterTime, null);
+});
