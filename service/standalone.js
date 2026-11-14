@@ -14,9 +14,14 @@
     }
   }
 
-  function limitLiveHistory(Hls) {
+  function configureLiveHls(Hls, platform) {
     var config = Hls && Hls.DefaultConfig;
-    if (config && config.backBufferLength > 24) config.backBufferLength = 24;
+    if (!config) return;
+    if (config.backBufferLength > 24) config.backBufferLength = 24;
+    // Let the SDK use its FetchLoader where streaming APIs are available.
+    if (['fetch', 'AbortController', 'ReadableStream', 'Request'].every(function (name) {
+      return typeof platform[name] === 'function';
+    })) config.progressive = true;
   }
 
   function manageLiveHeartbeat(live, cancel) {
@@ -42,7 +47,7 @@
   }
 
   if (typeof module === 'object' && typeof window === 'undefined') {
-    module.exports = {notifyVideoReady:notifyVideoReady, limitLiveHistory:limitLiveHistory, manageLiveHeartbeat:manageLiveHeartbeat};
+    module.exports = {notifyVideoReady:notifyVideoReady, configureLiveHls:configureLiveHls, rollGuideDate:rollGuideDate, manageLiveHeartbeat:manageLiveHeartbeat};
     return;
   }
 
@@ -70,7 +75,7 @@
   }
 
   function requirePlayer() {
-    limitLiveHistory(window.Hls);
+    configureLiveHls(window.Hls, window);
     var modules = window.webpackJsonp[0][1];
     var cache = Object.create(null);
     function load(id) {
@@ -93,11 +98,24 @@
   }
 
   function dates(channel, today) {
-    var day = channel.programDates.indexOf(today);
-    var start = day === -1 ? 0 : Math.max(day - 3, 0);
-    return channel.programDates.slice(start, start + 7).map(function (date) {
+    var available = channel.programDates.indexOf(today) === -1 ? channel.programDates.concat(today).sort() : channel.programDates;
+    var day = available.indexOf(today);
+    var start = Math.max(day - 3, 0);
+    return available.slice(start, start + 7).map(function (date) {
       return {day:date.slice(5).replace('-', '/'), fullDay:date.replace(/-/g, '')};
     });
+  }
+
+  function rollGuideDate(vm, previous, current) {
+    if (previous === current) return;
+    // Keep the date picker usable if the startup catalogue is older than today.
+    var choices = dates(vm.tvIndex, current);
+    if (!vm.followGuideToday && !choices.some(function (choice) { return choice.fullDay === vm.jiemuNowDate; })) {
+      var day = vm.jiemuNowDate;
+      choices = [{day:day.slice(4, 6) + '/' + day.slice(6), fullDay:day}].concat(choices);
+    }
+    vm.guideDates = choices;
+    if (vm.followGuideToday) vm.changeDay(current.replace(/-/g, ''));
   }
 
   function mount(libraries, groups, serverTime) {
@@ -105,6 +123,7 @@
     var catalogue = window.yspCatalogue;
     var currentRequest = 0;
     var programmeTimer;
+    var guideToday;
     function now() { return Date.now() + offset; }
     function today() { return new Date(now() + 8 * 3600000).toISOString().slice(0, 10); }
     var selected = new URLSearchParams(location.search).get('pid');
@@ -141,7 +160,7 @@
     return new libraries.Vue({
       data: {
         tvTabs:groups, selectIndex:group, tvIndex:null, jiemudanInfo:[],
-        jiemuNowDate:'', nowPlayItem:'', videoConfig:null, playerRevision:0
+        jiemuNowDate:'', guideDates:[], followGuideToday:true, nowPlayItem:'', videoConfig:null, playerRevision:0
       },
       created: function () {
         this.changeTV(initial);
@@ -153,7 +172,9 @@
         changeTV: function (channel) {
           window.yspChannelGeneration = (window.yspChannelGeneration || 0) + 1;
           var date = today();
-          this.tvIndex = Object.assign({}, channel, {parseDateList1:dates(channel, date)});
+          guideToday = date;
+          this.tvIndex = channel;
+          this.guideDates = dates(channel, date);
           this.videoConfig = {pid:channel.pid, vid:channel.streamId, isTV:true, autoplay:true,
             viewRights:channel.viewRights, payType:channel.payType};
           history.replaceState(null, '', '?pid=' + encodeURIComponent(channel.pid));
@@ -169,6 +190,9 @@
           this.playerRevision++;
         },
         updateLiveProgramme: function () {
+          var previous = guideToday;
+          guideToday = today();
+          rollGuideDate(this, previous, guideToday);
           if (!this.jiemudanInfo.length) return;
           var marked = catalogue.markCurrentProgramme(this.jiemudanInfo, Math.floor(now() / 1000));
           if (marked.entries.some(function (entry, index) { return entry !== this.jiemudanInfo[index]; }, this)) {
@@ -179,6 +203,7 @@
         changeDay: function (day) {
           var vm = this;
           var request = ++currentRequest;
+          vm.followGuideToday = day === today().replace(/-/g, '');
           vm.jiemuNowDate = day;
           vm.jiemudanInfo = [];
           vm.nowPlayItem = '';

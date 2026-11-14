@@ -129,7 +129,7 @@ function rewriteManifest(text, base, origin) {
   }).join('\n');
 }
 
-function forward(req, res, target, body, page, origin, transport, agent) {
+function forward(req, res, target, body, origin, transport, agent) {
   var upstream;
   var timer;
   var source;
@@ -139,7 +139,7 @@ function forward(req, res, target, body, page, origin, transport, agent) {
     if (upstream) upstream.destroy();
   }
   function fail() {
-    reply(res, 502, page ? failurePage() : 'Upstream request failed', page ? 'text/html; charset=utf-8' : undefined);
+    reply(res, 502, 'Upstream request failed');
     stop();
   }
   function receive(response) {
@@ -148,17 +148,6 @@ function forward(req, res, target, body, page, origin, transport, agent) {
     source.on('aborted', fail);
     source.on('end', function () { clearTimeout(timer); });
     if (source.statusCode >= 300 && source.statusCode < 400) { fail(); return; }
-    if (page) {
-      if (source.statusCode !== 200 || !/text\/html/i.test(source.headers['content-type'] || '') || (source.headers['content-encoding'] && source.headers['content-encoding'] !== 'identity')) { fail(); return; }
-      collect(source, 2 * 1024 * 1024, function (error, data) {
-        if (error) { fail(); return; }
-        var html = data.toString('utf8');
-        if (!/<head\b[^>]*>/i.test(html)) { fail(); return; }
-        var injection = '<script src="' + origin + '/player-context.js"></script><script src="' + origin + '/session.js"></script><script src="' + origin + '/adapter.js"></script><link rel="stylesheet" href="/tv-shell.css"><script src="/tv-shell.js"></script>';
-        reply(res, 200, html.replace(/<head\b[^>]*>/i, function (head) { return head + injection; }), 'text/html; charset=utf-8');
-      });
-      return;
-    }
     var manifest = /\.m3u8$/i.test(target.pathname) || /mpegurl/i.test(source.headers['content-type'] || '');
     if (manifest && req.method !== 'HEAD' && source.statusCode >= 200 && source.statusCode < 300) {
       if (source.headers['content-encoding'] && source.headers['content-encoding'] !== 'identity') { fail(); return; }
@@ -213,17 +202,17 @@ function createServer(options) {
       });
       return;
     }
-    var page = local.pathname === '/tv/home';
     var staticFile = /^\/(js|css|img)\/[A-Za-z0-9_./-]+$/.test(local.pathname);
-    if (!page && !staticFile && local.pathname !== '/proxy') { reply(res, 404, 'Not found'); return; }
-    if ((page && req.method !== 'GET') || (staticFile && req.method !== 'GET' && req.method !== 'HEAD')) { reply(res, 405, 'Method not allowed'); return; }
+    if (!staticFile && local.pathname !== '/proxy') { reply(res, 404, 'Not found'); return; }
+    if (staticFile && req.method !== 'GET' && req.method !== 'HEAD') { reply(res, 405, 'Method not allowed'); return; }
     var target;
-    try { target = targetURL(page || staticFile ? OFFICIAL + local.pathname + local.search : local.searchParams.get('url')); }
+    try { target = targetURL(staticFile ? OFFICIAL + local.pathname + local.search : local.searchParams.get('url')); }
     catch (error) { reply(res, 403, 'Target not allowed'); return; }
+    if (target.hostname === 'www.yangshipin.cn' && /^\/tv\/home\/?$/.test(target.pathname)) { reply(res, 404, 'Not found'); return; }
     if (target.hostname === 'ucenter-api.yangshipin.cn' && ACCOUNT_ROUTES[target.pathname] !== req.method) { reply(res, 403, 'Account endpoint not allowed'); return; }
     collect(req, 1024 * 1024, function (error, body) {
       if (error) { reply(res, 413, 'Request body too large or incomplete'); return; }
-      forward(req, res, target, body, page, origin, transport, agent);
+      forward(req, res, target, body, origin, transport, agent);
     });
   });
   // Allow the upstream deadline to render a recoverable response before closing the client.

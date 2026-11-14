@@ -93,31 +93,6 @@ test('late official SDK assignment retains state while mapping two environment r
   expect(result).toEqual({host:'www.yangshipin.cn', protocol:'https:', other:{path:'window.location.hostname', extra:'kept', sameReceiver:true}, sameState:true, sameWrapper:true, sameLocation:true});
 });
 
-test('real service failure HTML is retryable and handles webOS Back', async ({page}) => {
-  const url = 'http://127.0.0.1:41974/tv/home';
-  const response = await page.goto(url);
-  expect(response.status()).toBe(502);
-  await expect(page.getByRole('heading')).toHaveText('暂时无法加载央视频');
-  await expect(page.getByRole('button', {name:'重试'})).toBeFocused();
-  const retry = page.waitForResponse(url);
-  await page.keyboard.press('Enter');
-  expect((await retry).status()).toBe(502);
-  await expect(page.getByRole('button', {name:'重试'})).toBeFocused();
-  await back(page);
-  expect(await page.evaluate(() => window.testCloseCount)).toBe(1);
-});
-
-test('remote retry returns from an upstream failure to the recovered page', async ({page}) => {
-  const url = 'http://127.0.0.1:41974/tv/home?fixture=recovery-' + Date.now();
-  expect((await page.goto(url)).status()).toBe(502);
-  await expect(page.getByRole('button', {name:'重试'})).toBeFocused();
-  const retry = page.waitForResponse(url);
-  await page.keyboard.press('Enter');
-  expect((await retry).status()).toBe(200);
-  await expect(page.locator('h1').filter({hasText:'央视频已恢复'})).toBeAttached();
-  await expect(page.getByText('正在加载频道…')).toBeVisible();
-});
-
 test('TV toolbar stays within 1080p safe area and has readable text at focus edges', async ({page}) => {
   await page.setViewportSize({width:1920, height:1080});
   await page.goto('/fixture');

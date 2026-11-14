@@ -49,7 +49,17 @@ test('guide dates can be changed and later programmes are reachable without swit
   await expect(page.getByText('03:00 第四条')).toBeFocused();
   await page.keyboard.press('Enter');
   await expect(page.getByRole('status')).toContainText('节目单仅供查看');
+  const back = () => page.evaluate(() => window.dispatchEvent(new KeyboardEvent('keydown', {keyCode:461})));
+  await back();
+  await expect(page.getByRole('button', {name:'11/15'})).toBeFocused();
+  await page.evaluate(() => window.dispatchEvent(new KeyboardEvent('keydown', {keyCode:461, repeat:true})));
+  await expect(page.getByRole('button', {name:'11/15'})).toBeFocused();
+  await back();
+  await expect(page.getByRole('button', {name:'全屏'})).toBeFocused();
+  expect(await page.evaluate(() => window.closedByApp)).toBe(0);
   expect(await page.evaluate(() => window.calls)).toEqual(['date:20261115']);
+  await back();
+  expect(await page.evaluate(() => window.closedByApp)).toBe(1);
 });
 
 test('quality menu uses the current player and identifies the active resolution', async ({page}) => {

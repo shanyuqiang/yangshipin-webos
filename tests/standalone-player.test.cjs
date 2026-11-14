@@ -29,14 +29,14 @@ test('restores native pause even if the official readiness handler fails', () =>
 });
 
 test('the live player bounds retained history and leaves other HLS options intact', () => {
-  const {limitLiveHistory} = require('../service/standalone');
+  const {configureLiveHls} = require('../service/standalone');
   const defaults = {backBufferLength:Infinity, maxBufferLength:30, enableWorker:false};
-  limitLiveHistory({DefaultConfig:defaults});
+  configureLiveHls({DefaultConfig:defaults}, {});
   assert.deepEqual(defaults, {backBufferLength:24, maxBufferLength:30, enableWorker:false});
   const shorter = {backBufferLength:12};
-  limitLiveHistory({DefaultConfig:shorter});
+  configureLiveHls({DefaultConfig:shorter}, {});
   assert.equal(shorter.backBufferLength,12);
-  assert.doesNotThrow(() => limitLiveHistory(undefined));
+  assert.doesNotThrow(() => configureLiveHls(undefined, {}));
 });
 
 test('SDK quality resets and repeated source setup release the old heartbeat', () => {
@@ -55,4 +55,36 @@ test('SDK quality resets and repeated source setup release the old heartbeat', (
   live.initStep5(4);
   assert.deepEqual(cleared, [1, 2, 3]);
   assert.equal(live.cycleInterTime, null);
+});
+
+test('live HLS reads fragments progressively on platforms with fetch streams', () => {
+  const {configureLiveHls} = require('../service/standalone');
+  const defaults = {backBufferLength:Infinity, progressive:false, maxBufferLength:30};
+  configureLiveHls({DefaultConfig:defaults}, globalThis);
+  assert.deepEqual(defaults, {backBufferLength:24, progressive:true, maxBufferLength:30});
+
+  const legacy = {backBufferLength:12, progressive:false};
+  configureLiveHls({DefaultConfig:legacy}, {fetch() {}});
+  assert.deepEqual(legacy, {backBufferLength:12, progressive:false});
+});
+
+test('guide follows midnight once and keeps explicitly selected dates', () => {
+  const {rollGuideDate} = require('../service/standalone');
+  const channel = {programDates:['2026-11-13','2026-11-14']};
+  const requests = [];
+  const guide = {tvIndex:channel, followGuideToday:true, jiemuNowDate:'20261114', changeDay(day) {
+    requests.push(day);
+    this.jiemuNowDate = day;
+  }};
+  rollGuideDate(guide, '2026-11-14', '2026-11-15');
+  rollGuideDate(guide, '2026-11-15', '2026-11-15');
+  assert.deepEqual(requests, ['20261115']);
+  assert.equal(guide.tvIndex, channel);
+  assert.deepEqual(guide.guideDates.at(-1), {day:'11/15',fullDay:'20261115'});
+
+  guide.followGuideToday = false;
+  guide.jiemuNowDate = '20261113';
+  rollGuideDate(guide, '2026-11-15', '2026-11-16');
+  assert.deepEqual(requests, ['20261115']);
+  assert.equal(guide.jiemuNowDate, '20261113');
 });

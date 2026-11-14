@@ -128,3 +128,52 @@ The standalone guide now keeps the start and end times from the upstream respons
 ## Quality response ordering
 
 A desktop test against the live upstream held a 540p playback-address response, selected 720p and started decoding, then released the older response. The original build reverted to 540p. The corrected build stayed at 720p and continued decoding. Manual choices now replace the player instance with an explicit requested definition, preserving the upstream explicit selection parameter and isolating old responses. The last loaded quality menu for the same channel remains available until its new player has options. On the LG, quickly choosing 540p then 720p selected revision 2, retained focus on the quality control, and decoded at width 1280 with one video element. The delayed-response injection was performed on desktop; the LG test used real requests without injected delay.
+
+## Five-minute foreground smoothness checks
+
+| LG CX playback | Window | Media advance | Decoded frames | Dropped frames | Waiting / stalled events |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| CCTV1 720p, TV layout, dd82b5c | 302.1 s | 301.2 s | 7,480 | 16 | 1 / 7 |
+| Hunan TV 720p, fullscreen, build with the retired desktop route removed | 301.5 s | 301.1 s | 7,481 | 14 | 0 / 3 |
+
+Both observations fail the zero-drop requirement. CCTV1 had 14.36 seconds buffered at its waiting event. Several stalled notifications occurred while playback continued across adjacent samples. Page sampling gaps and Chromium 68's absence of presentation-frame telemetry limit claims about exact visible freeze durations. The test tool distinguishes decoding progress from the stricter smoothness result and rejects an incomplete sampling window as evidence of smoothness.
+
+The same installed build returned 404 for the retired local desktop route. A normal foreground launch reached the standalone interface without an official app entry script or desktop navigation DOM. Remote inputs switched from CCTV1 to Hunan TV and opened fullscreen at 720p.
+
+In desktop Chrome against live endpoints, the stock HLS Worker failed with a missing bundle dependency and fell back to the main thread. A temporary experiment supplied the missing Worker globals and reached a running Worker, but the video reported media decode error 3 and produced no decoded frames. That experiment was discarded. It does not establish the cause of each stall on the TV.
+
+A follow-up 720p fullscreen run on Hunan TV captured main-thread tasks lasting roughly 2.6–4.6 seconds. The CPU profile included the official CMG demux and audio WebAssembly calls, and Vue 2 observation of the HLS instance's nested objects. A temporary prototype tag prevented Vue from observing a replacement HLS instance. The replacement still decoded, and Vue observation disappeared from the largest sampled stacks. Long tasks still reached 3.9 seconds, and six stalled events occurred in 69 seconds. The temporary adjustment was removed. This comparison excludes reactive observation as the sole cause of the long tasks.
+
+At 540p fullscreen on Hunan TV, the original XHR loader produced no dropped frames, but observed seven clock stalls with at least 16.56 seconds buffered. The foreground watch recorded 310.7 seconds after startup grace and failed strict smoothness. The in-page 310.3-second sample advanced 310.5 seconds overall, with 7,728 additional frames, nine stalled events and no waiting event.
+
+Enabling the pinned SDK's progressive mode selected its FetchLoader on the LG and spread fragment processing across streamed response chunks. In the 309.9-second stable Hunan TV 540p comparison, the clock advanced 309.9 seconds and no drops, waits, seeks or clock stalls were observed. Five inspection gaps exceeded 1.5 seconds, so strict acceptance remained unverified. The longest browser long task seen in the comparison was 76 ms. The packaged change enables this mode where the Fetch streaming APIs exist. The package installed on the LG, started in the standalone UI at 540p, and switched to 720p through the TV controls with the FetchLoader active.
+
+The installed progressive build played CCTV1 at 720p fullscreen. In-page observation passed the strict checks over 314.7 seconds after startup grace, with zero drops, waits or seeks and a maximum sample gap of 1.313 seconds. The separate remote inspector run recorded zero drops, waits, seeks or clock stalls but remained unverified because one inspection gap was 1.505 seconds. A blocked live-address request then reproduced a player error. Removing the debugger rule and pressing Retry restored CCTV1 at 720p while retaining its programme guide and focus. The app subsequently switched to Hunan TV at 720p.
+
+After a channel switch on the same installed build, Hunan TV at 720p fullscreen passed the strict in-page checks over 312.7 seconds after startup grace. The clock advanced 312.7 seconds. The full sample included 8,083 additional decoded frames, zero drops, zero waits and zero seeks. The maximum sampling gap was 1.125 seconds, and the longest interval without observed clock advancement was 0.485 seconds. This verifies the two sampled 720p fullscreen windows on this LG. Chrome 68 provides no presentation-frame callback, so screen output was not measured frame by frame.
+
+The packaged progressive build also passed CCTV1 at 1920×1080 fullscreen. The page-timed strict CLI returned exit 0 and `acceptancePassed: true` after 310.0 stable seconds, with zero drops, waits or seeks and no media error. All 1,114 samples had width 1920. A separate page probe covering an overlapping 313.0-second stable window also passed. The strict CLI now samples on the television's clock, and still treats page sampling gaps above 1.5 seconds as unverified.
+
+The strict report now lists the decoded resolutions observed after startup grace. A resolution change makes fixed-resolution acceptance unverified while a confirmed stall or drop still fails the test.
+
+An anonymous desktop recheck of the public TV page showed a 35-item past schedule. Clicking the first past programme made no observed playback-address or player-authorization request. The hovered live player exposed no seek slider or native controls in the inspected UI. These checks describe the tested public page only. They do not establish capabilities available in a signed-in session.
+
+Hunan TV also passed a 600-second fullscreen run on the installed progressive build. After startup grace, all samples stayed at 1920×1080 for 589.8 seconds. The clock advanced 589.8 seconds, with 14,749 additional decoded frames, zero drops, zero waits and zero seeks. The CLI exited 0, and reanalysis with the fixed-resolution check also passed.
+
+## Programme-guide Back and membership prompt on LG
+
+The installed guide update was exercised on CCTV1 with the 11/11 schedule. Confirm on a historical programme showed the replay/timeshift limitation. The webOS Back key event moved focus from the programme to the selected date, then to the fullscreen control. A debugger-injected repeated Back event left focus on the date. The original video element kept decoding and the selected date stayed 11/11. The browser regression also checked that a further Back from the toolbar closes the app.
+
+Switching to CCTV Fengyun Theatre showed the membership badge on the focused channel. The player displayed the official membership message for higher resolution while the stream decoded at width 1280. No account or purchase action was taken.
+
+## Picture-quality persistence on LG
+
+With CCTV1 playing at 720p, the TV's private service returned the saved quality `shd`. After replacing the installed app with the same 0.0.1 package in place and launching it again, the service still returned `shd`, the application restored the preference, and CCTV1 advanced at width 1280 without a new quality selection. Back then closed the application, leaving no page in its debugger. A separate launch again restored `shd` and decoded at width 1280 with readyState 4. This covers an in-place same-version reinstall and a full app exit/relaunch. Signed-in account migration and a version-changing upgrade remain unverified.
+
+The LG also accepted a version-changing in-place installation from 0.0.1 to 0.0.2 using the same app and service IDs. A temporary QA package changed both manifests' versions and used the existing playback build. Installed inventory reported 0.0.2 after the upgrade. The service still returned `shd`, the app restored it into session storage, and CCTV1 reached readyState 4, 208 decoded frames and media time 4.82 seconds at width 1280 without manual selection. This verifies the saved quality across this upgrade. Real signed-in state was outside the run.
+
+## Programme guide across midnight on LG
+
+With the revised package installed, a debugger test moved the application clock across Beijing midnight while CCTV1 was decoding. The guide changed from November 14 to November 15, fetched 35 programme rows and selected the new date. Focus stayed on the previously focused November 14 button. The original player and video element remained active and decoded 150 additional frames during the transition. Selecting November 14 as a historical date and advancing the application clock another day preserved the requested date and video element. The test restored the application clock. Neither the television system clock nor the live source was changed.
+
+The tracked app and service manifests now match the installed 0.0.2 QA package. Both source directories were compared byte for byte against its packaging inputs. SHA-256 digests for the installed app's served standalone and TV shell scripts matched those extracted from the IPK. The app remained at 720p and the retired desktop route returned 404. The packaged files are minified by the webOS packager.

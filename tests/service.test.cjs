@@ -114,34 +114,14 @@ test('oversized bodies, redirects and upstream errors fail safely', async () => 
   });
 });
 
-test('official HTML keeps local navigation and receives adapter before its scripts', async () => {
-  await withServer(upstream(200, { 'content-type': 'text/html' }, '<html><head><script src="/app.js"></script></head></html>', []), async (get, origin) => {
-    const res = await get('/tv/home');
-    assert.equal(res.status, 200);
-    const declaredBase = res.text.match(/<base[^>]+href="([^"]+)/i);
-    const effectiveBase = declaredBase ? declaredBase[1] : origin + '/tv/home';
-    assert.equal(new URL('?pid=test-channel', effectiveBase).origin, origin);
-    assert.doesNotMatch(res.text, /<base/i);
-    assert.ok(res.text.indexOf(origin + '/adapter.js') < res.text.indexOf('/app.js'));
-    assert.ok(res.text.indexOf(origin + '/player-context.js') >= 0);
-    assert.ok(res.text.indexOf(origin + '/player-context.js') < res.text.indexOf(origin + '/session.js'));
-    assert.ok(res.text.indexOf(origin + '/session.js') < res.text.indexOf(origin + '/adapter.js'));
-    assert.equal((await get('/unknown')).status, 404);
+test('the retired official page route returns 404 without contacting upstream', async () => {
+  const calls = [];
+  await withServer(upstream(200, {'content-type':'text/html'}, '<head></head>', calls), async get => {
+    for (const route of ['/tv/home', '/tv/home?pid=test-channel', proxy('https://www.yangshipin.cn/tv/home'), '/unknown']) {
+      assert.equal((await get(route)).status, 404);
+    }
+    assert.equal(calls.length, 0);
   });
-});
-
-test('bad HTML and compressed HTML fail without emitting a corrupted page', async () => {
-  for (const fixture of [
-    { headers: { 'content-type': 'text/html' }, body: 'missing head' },
-    { headers: { 'content-type': 'text/html', 'content-encoding': 'gzip' }, body: 'compressed' },
-    { headers: { 'content-type': 'application/json' }, body: '{}' },
-    { headers: { 'content-type': 'text/html' }, body: 'x'.repeat(2 * 1024 * 1024 + 1) }
-  ]) {
-    await withServer(upstream(200, fixture.headers, fixture.body, []), async get => {
-      assert.equal((await get('/tv/home')).status, 502);
-      assert.equal((await get('/tv/home', { method: 'POST' })).status, 405);
-    });
-  }
 });
 
 test('upstream timeout destroys the request and returns a bounded failure', async () => {
@@ -221,11 +201,9 @@ test('cookie translation rejects controls, invalid names and unsafe value charac
 });
 
 
-test('channel query survives page reload and static paths use only the official host', async () => {
+test('static paths use only the official host', async () => {
   const calls = [];
   await withServer(upstream(200, { 'content-type': 'text/html' }, '<head></head>', calls), async get => {
-    assert.equal((await get('/tv/home?pid=test-channel&a=1%2B2')).status, 200);
-    assert.equal(calls[0].path, '/tv/home?pid=test-channel&a=1%2B2');
     for (const file of ['/js/app.hash.js', '/css/chunk.hash.css', '/img/logo.hash.png']) {
       assert.equal((await get(file + '?url=https%3A%2F%2Fevil.test%2F')).status, 200);
       const call = calls[calls.length - 1];
@@ -284,39 +262,7 @@ test('serverTime exact host is allowed without forwarding anonymous cookies', as
   });
 });
 
-test('page failures retain 502 and present a Chinese remote recovery page', async () => {
-  const vm = require('node:vm');
-  for (const transport of [upstream('error', {}, '', []), upstream(200, {'content-type':'text/html'}, 'invalid markup', [])]) {
-    await withServer(transport, async get => {
-      const result = await get('/tv/home');
-      assert.equal(result.status, 502);
-      assert.match(result.headers['content-type'], /text\/html/);
-      assert.match(result.text, /暂时无法加载央视频/);
-      assert.match(result.text, /重试/);
-      assert.doesNotMatch(result.text, /secret|invalid markup/);
-      const script = result.text.match(/<script>([\s\S]*?)<\/script>/)[1];
-      let focused = 0;
-      let reloaded = 0;
-      let closed = 0;
-      const events = {};
-      const button = { focus() { focused++; }, addEventListener(type, fn) { events[type] = fn; } };
-      vm.runInNewContext(script, {
-        document: { getElementById() { return button; }, addEventListener(type, fn) { events[type] = fn; } },
-        window: { location: { reload() { reloaded++; } }, close() { closed++; } }
-      });
-      assert.equal(focused, 1);
-      events.click();
-      events.keydown({ keyCode:13, preventDefault() {} });
-      events.keydown({ keyCode:40, preventDefault() {} });
-      events.keydown({ keyCode:461, preventDefault() {} });
-      assert.equal(reloaded, 2);
-      assert.equal(focused, 2);
-      assert.equal(closed, 1);
-    });
-  }
-});
-
-test('real upstream deadline renders recovery before the server idle timeout', { timeout: 15000 }, async () => {
+test('real upstream deadline returns an error before the server idle timeout', { timeout: 15000 }, async () => {
   const stalled = () => {
     const request = new PassThrough();
     request.setTimeout = () => {};
@@ -324,9 +270,9 @@ test('real upstream deadline renders recovery before the server idle timeout', {
     return request;
   };
   await withServer(stalled, async get => {
-    const response = await get('/tv/home');
+    const response = await get(proxy('https://player-api.yangshipin.cn/v1/player/auth'));
     assert.equal(response.status, 502);
-    assert.match(response.text, /暂时无法加载央视频/);
+    assert.equal(response.text, 'Upstream request failed');
   });
 });
 

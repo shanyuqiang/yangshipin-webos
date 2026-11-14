@@ -27,11 +27,12 @@ test('decoding failures and absent video fail without exposing arbitrary message
 
 test('inspection selects only an unambiguous local TV page', async () => {
   const { selectTarget } = await load();
-  const target = {id:'one', type:'page', url:'http://127.0.0.1:1234/tv/home?pid=1'};
+  const target = {id:'one', type:'page', url:'http://127.0.0.1:1234/standalone?pid=1'};
   assert.equal(selectTarget([target]), target);
   assert.throws(() => selectTarget([target, {...target,id:'two'}]), /ambiguous_target/);
   assert.equal(selectTarget([target, {...target,id:'two'}], 'two').id, 'two');
   assert.throws(() => selectTarget([{...target,url:'https://www.yangshipin.cn/tv/home'}]), /no_target/);
+  assert.throws(() => selectTarget([{...target,url:'http://127.0.0.1:1234/tv/home'}]), /no_target/);
 });
 
 test('CLI arguments and target discovery fail with reports that omit endpoint information', async () => {
@@ -65,6 +66,7 @@ test('available decoded-frame counts must advance and unavailable counts are exp
   assert.equal(frozen.passed, false);
   assert.equal(frozen.reason, 'no_decoded_frames');
   assert.equal(frozen.frameCheck, 'failed');
+  assert.equal(frozen.strictSmoothness, 'failed');
   const unavailable = analyzeSamples(times.map(t => sample(t,t,{decodedFrames:null})));
   assert.equal(unavailable.passed, true);
   assert.equal(unavailable.frameCheck, 'unavailable');
@@ -97,4 +99,75 @@ test('smoothness is unverified when frame counters are missing or reset', async 
     times.map(t => sample(t,t,{droppedFrames:null})),
     times.map(t => sample(t,t,{droppedFrames:t===15?7:t===20?2:0}))
   ]) assert.equal(analyzeSamples(samples).smoothness, 'unverified');
+});
+
+test('strict smoothness requires a full foreground run with no waiting or dropped frames', async () => {
+  const {analyzeSamples} = await load();
+  const clean = Array.from({length:311}, (_, t) => sample(t,t,{visible:true,waitingCount:0,seekingCount:0,videoGeneration:1}));
+  assert.equal(analyzeSamples(clean).strictSmoothness, 'passed');
+  assert.equal(analyzeSamples(clean.slice(0, 30)).strictSmoothness, 'unverified');
+  assert.equal(analyzeSamples(clean.map(s => ({...s, waitingCount:s.elapsed >= 30 ? 1 : 0}))).strictSmoothness, 'failed');
+  assert.equal(analyzeSamples(clean.map(s => ({...s, droppedFrames:s.elapsed >= 30 ? 1 : 0}))).strictSmoothness, 'failed');
+  assert.equal(analyzeSamples(clean.map(s => ({...s, seekingCount:s.elapsed >= 30 ? 1 : 0}))).strictSmoothness, 'failed');
+  assert.equal(analyzeSamples(clean.map(s => ({...s, waitingCount:null}))).strictSmoothness, 'unverified');
+  assert.equal(analyzeSamples(clean.map(s => ({...s, videoGeneration:null}))).strictSmoothness, 'unverified');
+  assert.equal(analyzeSamples(clean.filter(s => s.elapsed % 5 === 0)).strictSmoothness, 'unverified');
+  assert.equal(analyzeSamples(clean.map(s => s.elapsed >= 30 && s.elapsed <= 40 ? {...s,decodedFrames:29*25} : s)).strictSmoothness, 'failed');
+  assert.equal(analyzeSamples(clean.slice(0, 50).map(s => ({...s,waitingCount:s.elapsed >= 30 ? 1 : 0}))).strictSmoothness, 'failed');
+  assert.equal(analyzeSamples(clean.map(s => ({...s,videoGeneration:s.elapsed >= 30 ? 2 : 1}))).strictSmoothness, 'unverified');
+  assert.equal(analyzeSamples(clean.map(s => s.elapsed === 29 ? {...s,currentTime:28} : s)).strictSmoothness, 'failed');
+});
+
+test('strict CLI rejects a duration too short to establish smoothness', async () => {
+  const {spawnSync} = require('node:child_process');
+  const path = require('node:path');
+  const cli = path.join(__dirname, '../tools/watch-video.mjs');
+  for (const duration of ['20', '310']) {
+    const result = spawnSync(process.execPath, [cli, 'http://127.0.0.1:1', duration, '--strict'], {encoding:'utf8', timeout:5000});
+    assert.ifError(result.error);
+    assert.equal(result.status, 1);
+    const report = JSON.parse(result.stdout);
+    assert.equal(report.reason, 'strict_duration_too_short');
+    assert.equal(report.acceptancePassed, false);
+  }
+});
+
+test('TV sampling uses its own clock and releases listeners at the end of a run', async () => {
+  const { captureOnPage, readVideoSample } = await load();
+  const {runInNewContext} = require('node:vm');
+  let now = 0;
+  let timer;
+  const video = new EventTarget();
+  Object.assign(video, {currentTime:0, buffered:{length:0}, paused:false, videoWidth:1280, videoHeight:720});
+  const document = new EventTarget();
+  Object.assign(document, {visibilityState:'visible', querySelector:selector => selector === 'video' ? video : null});
+  const completion = runInNewContext(readVideoSample + ';(' + captureOnPage + ')(0.6)', {
+    document, performance:{now:()=>now},
+    setInterval(fn) { timer = fn; return 1; },
+    clearInterval() { timer = null; }
+  });
+  now = 250;
+  document.visibilityState = 'hidden';
+  document.dispatchEvent(new Event('visibilitychange'));
+  document.visibilityState = 'visible';
+  video.dispatchEvent(new Event('waiting'));
+  timer();
+  now = 700;
+  timer();
+  const samples = await completion;
+  assert.deepEqual(Array.from(samples, row => row.elapsed), [0, 0.25, 0.7]);
+  assert.equal(samples.at(-1).waitingCount, 1);
+  assert.deepEqual(Array.from(samples, row => row.visible), [true, false, true]);
+  assert.equal(timer, null);
+});
+
+test('strict playback certifies a single resolution after startup grace', async () => {
+  const { analyzeSamples } = await load();
+  const clean = Array.from({length:311}, (_, t) => sample(t,t,{visible:true,waitingCount:0,seekingCount:0,videoGeneration:1}));
+  const resized = clean.map(s => s.elapsed === 160 ? {...s,width:960,height:540} : s);
+  assert.equal(analyzeSamples(resized).strictSmoothness, 'unverified');
+  assert.equal(analyzeSamples(resized.map(s=>({...s,droppedFrames:s.elapsed >= 165 ? 1 : 0}))).strictSmoothness,'failed');
+  const warmup = clean.map(s => s.elapsed < 10 ? {...s,width:960,height:540} : s);
+  assert.deepEqual(analyzeSamples(warmup).observedResolutions, ['1920x1080']);
+  assert.equal(analyzeSamples(warmup).strictSmoothness, 'passed');
 });

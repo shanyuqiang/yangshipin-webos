@@ -22,26 +22,3 @@ http.createServer((req, res) => {
     res.end(error ? 'Fixture unavailable' : data);
   });
 }).listen(41973, '127.0.0.1');
-
-const {EventEmitter} = require('node:events');
-const {Readable} = require('node:stream');
-const {createServer} = require('../../service/core');
-const recoveryAttempts = new Set();
-createServer({request(options, receive) {
-  const request = new EventEmitter();
-  request.setTimeout = () => request;
-  request.destroy = () => {};
-  request.end = () => setImmediate(() => {
-    const isRecovery = options.path.startsWith('/tv/home?fixture=recovery-');
-    if (isRecovery && recoveryAttempts.has(options.path)) {
-      const response = Readable.from([Buffer.from('<!doctype html><html><head></head><body><h1>央视频已恢复</h1></body></html>')]);
-      response.statusCode = 200;
-      response.headers = {'content-type':'text/html'};
-      receive(response);
-    } else {
-      if (isRecovery) recoveryAttempts.add(options.path);
-      request.emit('error', new Error('fixture upstream offline'));
-    }
-  });
-  return request;
-}}).listen(41974, '127.0.0.1');

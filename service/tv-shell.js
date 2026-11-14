@@ -157,20 +157,27 @@
 
     function renderDates() {
       var wasFocused = dates.contains(document.activeElement);
+      var focusedDay = wasFocused && document.activeElement.getAttribute('data-guide-day');
+      var choices = vm.guideDates || vm.tvIndex && vm.tvIndex.parseDateList1 || [];
       dates.textContent = '';
-      rows[3] = ((vm.tvIndex && vm.tvIndex.parseDateList1) || []).map(function (date, index) {
-        return button(dates, date.day, function () {
+      rows[3] = choices.map(function (date, index) {
+        var item = button(dates, date.day, function () {
           focus(3, index);
           vm.changeDay(date.fullDay);
           renderDateSelection();
         });
+        item.setAttribute('data-guide-day', date.fullDay);
+        return item;
       });
+      var focusedIndex = choices.findIndex(function (choice) { return choice.fullDay === focusedDay; });
+      var selectedIndex = choices.findIndex(function (choice) { return choice.fullDay === vm.jiemuNowDate; });
+      positions[3] = Math.max(0, focusedIndex === -1 ? selectedIndex : focusedIndex);
       renderDateSelection();
       if (wasFocused) focus(3, positions[3]);
     }
 
     function renderDateSelection() {
-      var choices = vm.tvIndex && vm.tvIndex.parseDateList1 || [];
+      var choices = vm.guideDates || vm.tvIndex && vm.tvIndex.parseDateList1 || [];
       rows[3].forEach(function (element, index) {
         element.setAttribute('aria-pressed', String(choices[index].fullDay === vm.jiemuNowDate));
       });
@@ -308,8 +315,12 @@
         document.body.classList.remove('tv-shell-account');
         focus(0, 2);
       } else if (key === 461) {
-        if (qualityMenu) toggleQuality(false);
-        else window.close();
+        if (!event.repeat) {
+          if (qualityMenu) toggleQuality(false);
+          else if (column === 4) focus(3, positions[3]);
+          else if (column === 3) focus(0, positions[0]);
+          else window.close();
+        }
       } else if (key === 13) {
         var selected = rows[column][positions[column]];
         if (!event.repeat && selected) {
@@ -352,6 +363,7 @@
     vm.$watch('jiemudanInfo', updateProgramme);
     vm.$watch('nowPlayItem', updateProgramme);
     vm.$watch('jiemuNowDate', renderDateSelection);
+    vm.$watch('guideDates', renderDates);
     vm.$watch('tvIndex', function () { retrying = false; clearBuffering(); renderDates(); updateProgramme(); });
     vm.$watch(function () { return [vm.videoConfig, vm.playerRevision, vm.$refs.player && vm.$refs.player.errorInfos]; }, updateProgramme);
     root.addEventListener('focusin', function (event) {

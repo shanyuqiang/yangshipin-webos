@@ -20,4 +20,12 @@ npm run test:e2e
 npm exec --yes --package=@webos-tools/cli@3.2.6 -- ares-package app service -o dist
 ```
 
+真机流畅度验收需要 Node.js 22+ 和当前电视应用的 webOS 调试端口。打开目标频道并进入全屏后执行：
+
+```sh
+node tools/watch-video.mjs "http://127.0.0.1:$INSPECT_PORT" 320 --strict
+```
+
+采样在电视应用页面内进行。严格验收通过时报告 `acceptancePassed: true`，进程退出码为 0。采样不完整、分辨率改变或检测到掉帧、等待、跳转、停滞时，退出码为 1。
+
 电视兼容基线为 Chromium 68 / Node.js 8。进度与验收记录见 GitHub Issues。项目与央视频、LG 无官方关系。
