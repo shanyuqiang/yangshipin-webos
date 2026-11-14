@@ -1,0 +1,242 @@
+const {test, expect} = require('@playwright/test');
+
+test('TV focus and category browsing leave the live channel playing until confirmation', async ({page}) => {
+  await page.goto('/tv-shell');
+  const tv = page.getByRole('main', {name:'央视频直播'});
+  await expect(tv.getByRole('button', {name:'CCTV1'})).toBeFocused();
+  await page.keyboard.press('ArrowDown');
+  await expect(tv.getByRole('button', {name:'CCTV2'})).toBeFocused();
+  expect(await page.evaluate(() => window.calls)).toEqual([]);
+  await page.keyboard.press('Enter');
+  await expect(tv.getByRole('button', {name:'CCTV2'})).toHaveAttribute('aria-current', 'true');
+  await page.keyboard.press('ArrowLeft');
+  await page.keyboard.press('ArrowDown');
+  await page.keyboard.press('Enter');
+  await expect(tv.getByRole('button', {name:'湖南卫视'})).toBeFocused();
+  expect(await page.evaluate(() => window.calls)).toEqual(['group:0', 'channel:2']);
+  await page.keyboard.press('Enter');
+  await expect(tv.getByRole('button', {name:'湖南卫视'})).toHaveAttribute('aria-current', 'true');
+  expect(await page.evaluate(() => window.calls)).toEqual(['group:0', 'channel:2', 'group:1', 'channel:3']);
+});
+
+test('fullscreen ignores hidden controls and Back restores the TV controls', async ({page}) => {
+  await page.goto('/tv-shell');
+  await page.keyboard.press('ArrowLeft');
+  await page.keyboard.press('ArrowLeft');
+  await page.keyboard.press('Enter');
+  await expect.poll(() => page.evaluate(() => Boolean(document.fullscreenElement))).toBe(true);
+  await page.keyboard.press('ArrowRight');
+  await page.keyboard.press('Enter');
+  await expect(page.getByRole('button', {name:'画质', includeHidden:true})).toBeAttached();
+  await expect(page.getByRole('button', {name:'返回', includeHidden:true})).toHaveCount(0);
+  await page.evaluate(() => window.dispatchEvent(new KeyboardEvent('keydown', {keyCode:461})));
+  await expect.poll(() => page.evaluate(() => Boolean(document.fullscreenElement))).toBe(false);
+  await expect(page.getByRole('button', {name:'全屏'})).toBeFocused();
+});
+
+test('guide dates can be changed and later programmes are reachable without switching channels', async ({page}) => {
+  await page.goto('/tv-shell');
+  await page.keyboard.press('ArrowLeft');
+  await page.keyboard.press('ArrowLeft');
+  await page.keyboard.press('ArrowDown');
+  await page.keyboard.press('ArrowRight');
+  await page.keyboard.press('Enter');
+  await expect(page.getByRole('button', {name:'11/15'})).toHaveAttribute('aria-pressed', 'true');
+  await page.keyboard.press('ArrowDown');
+  await expect(page.getByText('01:00 第二条')).toBeFocused();
+  await page.keyboard.press('ArrowDown');
+  await page.keyboard.press('ArrowDown');
+  await expect(page.getByText('03:00 第四条')).toBeFocused();
+  await page.keyboard.press('Enter');
+  await expect(page.getByRole('status')).toContainText('节目单仅供查看');
+  const back = () => page.evaluate(() => window.dispatchEvent(new KeyboardEvent('keydown', {keyCode:461})));
+  await back();
+  await expect(page.getByRole('button', {name:'11/15'})).toBeFocused();
+  await page.evaluate(() => window.dispatchEvent(new KeyboardEvent('keydown', {keyCode:461, repeat:true})));
+  await expect(page.getByRole('button', {name:'11/15'})).toBeFocused();
+  await back();
+  await expect(page.getByRole('button', {name:'全屏'})).toBeFocused();
+  expect(await page.evaluate(() => window.closedByApp)).toBe(0);
+  expect(await page.evaluate(() => window.calls)).toEqual(['date:20261115']);
+  await back();
+  expect(await page.evaluate(() => window.closedByApp)).toBe(1);
+});
+
+test('quality menu uses the current player and identifies the active resolution', async ({page}) => {
+  await page.goto('/tv-shell');
+  await page.keyboard.press('ArrowLeft');
+  await page.keyboard.press('ArrowLeft');
+  await page.keyboard.press('ArrowRight');
+  await page.keyboard.press('Enter');
+  await expect(page.getByRole('button', {name:'蓝光 1080P'})).toHaveAttribute('aria-pressed', 'true');
+  await page.evaluate(() => { window.replacePlayer(); });
+  await page.keyboard.press('ArrowRight');
+  await page.keyboard.press('Enter');
+  expect(await page.evaluate(() => window.calls)).toEqual(['quality:replacement:shd']);
+  await expect(page.getByRole('button', {name:'画质'})).toBeFocused();
+});
+
+test('failed playback requests show an error in the visible TV interface', async ({page}) => {
+  await page.route('**/proxy?**', route => route.abort());
+  await page.goto('/tv-shell');
+  await page.evaluate(() => fetch('https://player-api.yangshipin.cn/v1/player/auth').catch(() => {}));
+  await expect(page.getByRole('main', {name:'央视频直播'}).getByRole('status')).toContainText('网络请求失败');
+});
+
+test('Back closes the login dialog before returning to the TV interface', async ({page}) => {
+  await page.goto('/tv-shell');
+  await page.keyboard.press('ArrowLeft');
+  await page.keyboard.press('ArrowLeft');
+  await page.keyboard.press('ArrowRight');
+  await page.keyboard.press('ArrowRight');
+  await page.keyboard.press('Enter');
+  await page.keyboard.press('Enter');
+  await page.keyboard.press('Enter');
+  await expect(page.getByLabel('手机号')).toBeVisible();
+  await expect(page.locator('#desktop-nav')).toBeHidden();
+  await expect(page.getByRole('main', {name:'央视频直播'})).toBeVisible();
+  const back = () => page.evaluate(() => document.activeElement.dispatchEvent(new KeyboardEvent('keydown', {keyCode:461, bubbles:true})));
+  await back();
+  await expect(page.getByLabel('手机号')).toBeHidden();
+  await back();
+  await expect(page.getByRole('main', {name:'央视频直播'}).getByRole('button', {name:'账号'})).toBeFocused();
+  expect(await page.evaluate(() => window.closedByApp)).toBe(0);
+});
+
+test('startup keeps the desktop page hidden while the TV controls load', async ({page}) => {
+  await page.goto('/tv-shell?pending');
+  await expect(page.getByRole('heading', {name:'央视频直播'})).toBeVisible();
+  await expect(page.getByText('正在加载频道…')).toBeVisible();
+  await expect(page.locator('#desktop-nav')).toBeHidden();
+});
+
+test('standalone account dialog can return to TV even if SDK rewrites body classes', async ({page}) => {
+  await page.goto('/tv-shell?standalone');
+  await page.getByRole('main', {name:'央视频直播'}).getByRole('button', {name:'账号'}).click();
+  await expect(page.getByLabel('手机号')).toBeVisible();
+  await expect(page.locator('#desktop-nav')).toBeHidden();
+  await page.evaluate(() => document.activeElement.dispatchEvent(new KeyboardEvent('keydown', {keyCode:461, bubbles:true})));
+  await expect(page.getByLabel('手机号')).toBeHidden();
+  await expect(page.getByRole('main', {name:'央视频直播'}).getByRole('button', {name:'账号'})).toBeFocused();
+  expect(await page.evaluate(() => window.closedByApp)).toBe(0);
+});
+
+test('sustained buffering is shown without moving focus and clears when video resumes', async ({page}) => {
+  await page.goto('/tv-shell');
+  const cctv = page.getByRole('button', {name:'CCTV1'});
+  await expect(cctv).toBeFocused();
+  await page.locator('video').dispatchEvent('waiting');
+  const buffering = page.getByText('正在缓冲…', {exact:true});
+  await expect(buffering).toBeVisible({timeout:4000});
+  await expect(cctv).toBeFocused();
+  await page.locator('video').dispatchEvent('playing');
+  await expect(buffering).toBeHidden();
+});
+
+test('confirming the current channel cancels a queued switch', async ({page}) => {
+  await page.goto('/tv-shell');
+  await page.evaluate(() => {
+    const slots = [];
+    window.requestAnimationFrame = callback => slots.push(callback);
+    const buttons = document.querySelectorAll('.tv-shell-channels button');
+    buttons[1].click();
+    buttons[0].click();
+    slots.forEach(callback => callback());
+  });
+  await expect(page.getByRole('button', {name:'CCTV1'})).toHaveAttribute('aria-current', 'true');
+  await expect(page.getByRole('status')).not.toContainText('正在切换');
+  expect(await page.evaluate(() => window.calls)).toEqual([]);
+});
+
+test('TV retry restarts only the current stream and preserves focus', async ({page}) => {
+  await page.goto('/tv-shell?standalone');
+  const retry = page.getByRole('button', {name:'重试播放'});
+  await retry.focus();
+  await page.keyboard.press('Enter');
+  await expect(retry).toBeFocused();
+  await expect(page.getByRole('button', {name:'CCTV1'})).toHaveAttribute('aria-current', 'true');
+  await expect(page.getByRole('status')).toContainText('正在重试');
+  expect(await page.evaluate(() => window.calls)).toEqual(['retry:1']);
+});
+
+test('standalone can change its mind while a quality selection is loading', async ({page}) => {
+  await page.goto('/tv-shell?standalone');
+  await page.evaluate(() => {
+    const vm = window.yspStandaloneTV;
+    vm.selectPlaybackQuality = definition => {
+      window.calls.push('choose:'+definition);
+      vm.$refs.player.myPoster = null;
+    };
+  });
+  const open = () => page.getByRole('button', {name:'画质', exact:true}).click();
+  await open();
+  await page.getByRole('button', {name:'超清 720P'}).click();
+  await open();
+  await page.getByRole('button', {name:'蓝光 1080P'}).click();
+  expect(await page.evaluate(() => window.calls)).toEqual(['choose:shd','choose:fhd']);
+});
+
+test('standalone rewind and live return stay within the current buffered range', async ({page}) => {
+  await page.goto('/tv-shell?standalone');
+  await page.evaluate(() => {
+    const video = document.querySelector('video');
+    const range = (start, end) => ({length:1,start:()=>start,end:()=>end});
+    Object.defineProperties(video, {
+      currentTime:{value:50,writable:true},
+      readyState:{value:4},
+      buffered:{value:range(25,65),configurable:true},
+      seekable:{value:range(20,70)}
+    });
+    yspStandaloneTV.$refs.player.myVideo = {myvideo:video,hls:{liveSyncPosition:58}};
+  });
+  const rewind = page.getByRole('button', {name:'后退 10 秒'});
+  const toolbar = await page.locator('.tv-shell-actions').boundingBox();
+  const guide = await page.locator('.tv-shell-guide').boundingBox();
+  expect(toolbar.y + toolbar.height).toBeLessThanOrEqual(guide.y);
+  await rewind.focus();
+  await page.keyboard.press('Enter');
+  await expect(rewind).toBeFocused();
+  expect(await page.locator('video').evaluate(v=>v.currentTime)).toBe(40);
+  await page.keyboard.press('ArrowRight');
+  await expect(page.getByRole('button', {name:'回到直播'})).toBeFocused();
+  await page.keyboard.press('Enter');
+  expect(await page.locator('video').evaluate(v=>v.currentTime)).toBe(58);
+  await page.evaluate(() => {
+    const video = document.querySelector('video');
+    Object.defineProperty(video,'buffered',{value:{length:1,start:()=>53,end:()=>65}});
+  });
+  await page.getByRole('button', {name:'后退 10 秒'}).click();
+  expect(await page.locator('video').evaluate(v=>v.currentTime)).toBe(58);
+  await expect(page.getByRole('status')).toContainText('缓冲不足');
+  await page.evaluate(() => {
+    yspStandaloneTV.$refs.player.myVideo.hls.liveSyncPosition = 69;
+  });
+  await page.getByRole('button', {name:'回到直播'}).click();
+  expect(await page.locator('video').evaluate(v=>v.currentTime)).toBe(58);
+  await expect(page.getByRole('status')).toContainText('直播点暂不可用');
+  await page.evaluate(() => { yspStandaloneTV.tvIndex.payType = '880'; });
+  await rewind.click();
+  await expect(page.getByRole('status')).toContainText('暂不可时移');
+  expect(await page.evaluate(()=>window.calls)).toEqual([]);
+});
+
+test('only TV-compatible controls appear inside the live video', async ({page}) => {
+  await page.goto('/tv-shell?standalone');
+  const controls = page.locator('.tv-main-con-l-vid .y-full-control-btnr');
+  await page.locator('.tv-main-con-l-vid').evaluate(player => {
+    player.insertAdjacentHTML('beforeend', `<div class="y-full-control-btnr">
+      <div class="y-control-outside mr-20">画质</div>
+      <div class="y-control-outside mr-20">音量</div>
+      <div class="flex-center mr-20"><button class="pip">小窗播放</button></div>
+      <div class="flex-center mr-20"><button class="videoFull">网页内全屏</button></div>
+      <button class="full full2">全屏</button>
+    </div>`);
+  });
+  await expect(controls.getByText('小窗播放')).toBeHidden();
+  await expect(controls.getByText('网页内全屏')).toBeHidden();
+  await expect(controls.getByText('画质')).toBeVisible();
+  await expect(controls.getByText('音量')).toBeVisible();
+  await expect(controls.getByRole('button', {name:'全屏',exact:true})).toBeVisible();
+  await expect(page.locator('.tv-shell-actions').getByRole('button', {name:'后退 10 秒'})).toBeVisible();
+  await expect(page.locator('.tv-shell-actions').getByRole('button', {name:'重试播放'})).toBeVisible();
+});

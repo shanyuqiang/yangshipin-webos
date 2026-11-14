@@ -1,0 +1,8 @@
+{
+  "id": "com.shanyuqiang.yangshipin.service",
+  "description": "Local no-login compatibility experiment",
+  "services": [{
+    "name": "com.shanyuqiang.yangshipin.service",
+    "description": "Local no-login compatibility experiment"
+  }]
+}
