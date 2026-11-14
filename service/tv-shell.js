@@ -276,7 +276,10 @@
         else window.close();
       } else if (key === 13) {
         var selected = rows[column][positions[column]];
-        if (!event.repeat && selected && column !== 4) selected.click();
+        if (!event.repeat && selected) {
+          if (column === 4) status.textContent = '节目单仅供查看，当前无法回看或时移。';
+          else selected.click();
+        }
       } else if (column === 4) {
         if (key === 38 && positions[4] === 0) focus(3, positions[3]);
         else if (key === 38 || key === 40) focus(4, positions[4] + (key === 38 ? -1 : 1));

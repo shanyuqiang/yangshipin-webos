@@ -48,6 +48,7 @@ test('guide dates can be changed and later programmes are reachable without swit
   await page.keyboard.press('ArrowDown');
   await expect(page.getByText('03:00 第四条')).toBeFocused();
   await page.keyboard.press('Enter');
+  await expect(page.getByRole('status')).toContainText('节目单仅供查看');
   expect(await page.evaluate(() => window.calls)).toEqual(['date:20261115']);
 });
 
