@@ -3,7 +3,7 @@ import { pathToFileURL } from 'node:url';
 import { setTimeout as sleep } from 'node:timers/promises';
 
 export function analyzeSamples(samples) {
-  const result = { passed: false, reason: 'incomplete_observation', progressSeconds: 0, observedSeconds: 0, frameCheck: 'unavailable' };
+  const result = { passed: false, reason: 'incomplete_observation', progressSeconds: 0, observedSeconds: 0, frameCheck: 'unavailable', smoothness: 'unverified' };
   if (samples.length < 2 || samples.at(-1).elapsed - samples[0].elapsed < 20) return result;
   if (samples.some(sample => sample.error)) return { ...result, reason: 'media_error' };
   const stable = samples.filter(sample => sample.elapsed >= samples[0].elapsed + 10);
@@ -21,9 +21,12 @@ export function analyzeSamples(samples) {
   let longestStall = 0;
   let lowBufferStallIntervals = 0;
   let bufferedStallIntervals = 0;
+  let monotonicFrames = hasFrameCounts && Number.isFinite(stable[0].droppedFrames) && stable[0].droppedFrames >= 0;
   for (let index = 1; index < stable.length; index++) {
     const previous = stable[index - 1];
     const current = stable[index];
+    monotonicFrames = monotonicFrames && Number.isFinite(current.droppedFrames)
+      && current.droppedFrames >= previous.droppedFrames && current.decodedFrames >= previous.decodedFrames;
     if (current.currentTime < previous.currentTime - 0.1) return { ...result, reason: 'timeline_reset' };
     if (current.currentTime > previous.currentTime + 0.05) lastAdvance = current.elapsed;
     else {
@@ -33,9 +36,14 @@ export function analyzeSamples(samples) {
     }
   }
   const reason = longestStall > 15 ? 'playback_stalled' : progressSeconds < observedSeconds * 0.75 ? 'insufficient_progress' : 'advancing';
+  const droppedFrameRatio = monotonicFrames && frameCheck === 'passed'
+    ? (stable.at(-1).droppedFrames - stable[0].droppedFrames) / (stable.at(-1).decodedFrames - stable[0].decodedFrames)
+    : null;
+  // This sampling check is a warning threshold, not certification of smooth output.
+  const smoothness = droppedFrameRatio === null ? 'unverified' : droppedFrameRatio >= 0.05 ? 'dropped_frames' : 'no_drop_warning';
   const buffers = stable.map(sample => sample.bufferAhead).filter(Number.isFinite);
   return { passed: reason === 'advancing', reason, progressSeconds, observedSeconds, longestStallSeconds: longestStall,
-    frameCheck, lowBufferStallIntervals, bufferedStallIntervals, minBufferAheadSeconds: buffers.length ? Math.min(...buffers) : null };
+    frameCheck, smoothness, droppedFrameRatio, lowBufferStallIntervals, bufferedStallIntervals, minBufferAheadSeconds: buffers.length ? Math.min(...buffers) : null };
 }
 
 export function selectTarget(targets, targetId) {

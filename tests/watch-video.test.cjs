@@ -81,3 +81,20 @@ test('foreground playback reports distinguish an empty buffer from a buffered st
   assert.equal(result.minBufferAheadSeconds, 0.1);
   assert.equal(analyzeSamples(samples.map(s => ({...s, visible:false}))).reason, 'background_observation');
 });
+
+test('decoding pass does not certify smooth playback when dropped frames are excessive', async () => {
+  const {analyzeSamples} = await load();
+  const result = analyzeSamples([0,5,10,15,20,25,30].map(t => sample(t,t,{droppedFrames:t*2})));
+  assert.equal(result.passed, true);
+  assert.equal(result.smoothness, 'dropped_frames');
+  assert.equal(result.droppedFrameRatio, 0.08);
+});
+
+test('smoothness is unverified when frame counters are missing or reset', async () => {
+  const {analyzeSamples} = await load();
+  const times = [0,5,10,15,20,25,30];
+  for (const samples of [
+    times.map(t => sample(t,t,{droppedFrames:null})),
+    times.map(t => sample(t,t,{droppedFrames:t===15?7:t===20?2:0}))
+  ]) assert.equal(analyzeSamples(samples).smoothness, 'unverified');
+});
